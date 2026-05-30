@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.egon12.btmid.ConnectionStatus
 import org.egon12.btmid.DeviceUiState
+import org.egon12.btmid.DrumBackend
 import org.egon12.btmid.MidiEventUiModel
 import org.egon12.btmid.UiState
 import org.egon12.btmid.ui.theme.BtmidTheme
@@ -40,6 +41,7 @@ fun MainScreen(
     onStopScan: () -> Unit,
     onConnect: (DeviceUiState) -> Unit,
     onDisconnect: () -> Unit,
+    onSetDrumBackend: (DrumBackend) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -63,6 +65,12 @@ fun MainScreen(
                 connectionStatus = uiState.connectionStatus,
                 onStartScan = onStartScan,
                 onStopScan = onStopScan,
+            )
+
+            DrumEngineSelector(
+                selected = uiState.drumBackend,
+                samplesLoaded = uiState.samplesLoaded,
+                onSelect = onSetDrumBackend,
             )
 
             if (uiState.discoveredDevices.isNotEmpty()) {
@@ -205,6 +213,7 @@ private fun MainScreenPermissionNeededPreview() {
             onStopScan = {},
             onConnect = {},
             onDisconnect = {},
+            onSetDrumBackend = {},
         )
     }
 }
@@ -231,6 +240,7 @@ private fun MainScreenConnectedPreview() {
             onStopScan = {},
             onConnect = {},
             onDisconnect = {},
+            onSetDrumBackend = {},
         )
     }
 }
@@ -253,6 +263,7 @@ private fun MainScreenScanningPreview() {
             onStopScan = {},
             onConnect = {},
             onDisconnect = {},
+            onSetDrumBackend = {},
         )
     }
 }

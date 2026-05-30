@@ -41,7 +41,7 @@ class SynthPlaybackTest {
 
     @Test
     fun `drums - basic 4-4 pattern`() = withAudio { line ->
-        val drums = DrumSynth()
+        val drums = NoiseDrumSynth()
         repeat(4) { // 4 bars at ~120 BPM
             // Beat 1
             drums.noteOn(36, 100); drums.noteOn(42, 80)
@@ -71,8 +71,40 @@ class SynthPlaybackTest {
     }
 
     @Test
+    fun `fm drums - kick and snare`() = withAudio { line ->
+        val drums = FmDrumSynth()
+        repeat(4) {
+            drums.noteOn(36, 100); drums.noteOn(42, 80)
+            line.renderMs(250) { drums.render(it) }
+            drums.noteOn(42, 60)
+            line.renderMs(250) { drums.render(it) }
+            drums.noteOn(38, 100); drums.noteOn(42, 80)
+            line.renderMs(250) { drums.render(it) }
+            drums.noteOn(42, 60)
+            line.renderMs(250) { drums.render(it) }
+        }
+    }
+
+    @Test
+    fun `fm drums - all voices`() = withAudio { line ->
+        val drums = FmDrumSynth()
+        val voices = mapOf(
+            36 to "Kick", 38 to "Snare",
+            42 to "Closed Hat", 46 to "Open Hat",
+            49 to "Crash", 51 to "Ride",
+            41 to "Low Floor Tom", 43 to "High Floor Tom",
+            45 to "Low Tom", 47 to "Low-Mid Tom",
+            48 to "Hi-Mid Tom", 50 to "High Tom",
+        )
+        for ((note, _) in voices) {
+            drums.noteOn(note, 100)
+            line.renderMs(700) { drums.render(it) }
+        }
+    }
+
+    @Test
     fun `drums - all voices`() = withAudio { line ->
-        val drums = DrumSynth()
+        val drums = NoiseDrumSynth()
         val voices = mapOf(
             36 to "Bass Drum",
             38 to "Snare",

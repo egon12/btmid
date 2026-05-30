@@ -133,11 +133,11 @@ Same pattern as existing code — no new locking primitives:
 ## Delivery Steps
 
 - [ ] **Step 0** — This plan ✓
-- [ ] **Step 1** — Extract `DrumSynth` interface; rename existing class to `NoiseDrumSynth`; wire `AudioEngine` to hold interface reference — app still works identically
-- [ ] **Step 2** — `FmDrumSynth`: implement kick + snare only; swap manually in code to verify FM sounds play
-- [ ] **Step 3** — Complete `FmDrumSynth` with all remaining GM types (hats, crash, ride, toms)
-- [ ] **Step 4** — `SampleBank` + `SampleDrumSynth`; add sample assets; verify sample playback
-- [ ] **Step 5** — `DrumEngineSelector` UI + `MainViewModel` state; live switching between all three backends
+- [x] **Step 1** — Extract `DrumSynth` interface; rename existing class to `NoiseDrumSynth`; wire `AudioEngine` to hold interface reference — app still works identically
+- [x] **Step 2** — `FmDrumSynth`: implement kick + snare only; swap manually in code to verify FM sounds play
+- [x] **Step 3** — Complete `FmDrumSynth` with all remaining GM types (hats, crash, ride, toms)
+- [x] **Step 4** — `SampleBank` + `SampleDrumSynth`; add sample assets; verify sample playback
+- [x] **Step 5** — `DrumEngineSelector` UI + `MainViewModel` state; live switching between all three backends
 - [ ] **Step 6** *(optional)* — Persist selected backend across app restarts via `DataStore`
 
 ---

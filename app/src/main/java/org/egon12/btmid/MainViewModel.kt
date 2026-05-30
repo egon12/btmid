@@ -12,11 +12,18 @@ import org.egon12.btmid.bluetooth.BleMidiConnection
 import org.egon12.btmid.bluetooth.BleScanner
 import org.egon12.btmid.midi.MidiEvent
 import org.egon12.btmid.midi.MidiRouter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.egon12.btmid.synth.AudioEngine
-import org.egon12.btmid.synth.DrumSynth
+import org.egon12.btmid.synth.DrumSynthProxy
+import org.egon12.btmid.synth.FmDrumSynth
+import org.egon12.btmid.synth.NoiseDrumSynth
 import org.egon12.btmid.synth.PianoSynth
+import org.egon12.btmid.synth.SampleBank
+import org.egon12.btmid.synth.SampleDrumSynth
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
+enum class DrumBackend { Noise, Fm, Samples }
 
 data class DeviceUiState(val address: String, val name: String)
 data class MidiEventUiModel(val description: String)
@@ -28,6 +35,8 @@ data class UiState(
     val connectedDeviceAddress: String? = null,
     val recentEvents: List<MidiEventUiModel> = emptyList(),
     val midiActivityPulse: Boolean = false,
+    val drumBackend: DrumBackend = DrumBackend.Noise,
+    val samplesLoaded: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -39,14 +48,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .adapter
 
     private val pianoSynth = PianoSynth()
-    private val drumSynth = DrumSynth()
-    private val midiRouter = MidiRouter(pianoSynth, drumSynth)
-    private val audioEngine = AudioEngine(pianoSynth, drumSynth)
+    private val noiseDrumSynth = NoiseDrumSynth()
+    private val fmDrumSynth = FmDrumSynth()
+    private val sampleBank = SampleBank(application)
+    private val sampleDrumSynth = SampleDrumSynth(sampleBank)
+    private val drumProxy = DrumSynthProxy(noiseDrumSynth)
+    private val midiRouter = MidiRouter(pianoSynth, drumProxy)
+    private val audioEngine = AudioEngine(pianoSynth, drumProxy)
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
 
     init {
         audioEngine.start()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { sampleBank.load() }
+            _uiState.value = _uiState.value.copy(samplesLoaded = true)
+        }
         viewModelScope.launch {
             midiRouter.events.collect { event ->
                 val description = when (event) {
@@ -111,6 +128,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             connectionStatus = ConnectionStatus.Idle,
             connectedDeviceAddress = null,
         )
+    }
+
+    fun setDrumBackend(backend: DrumBackend) {
+        drumProxy.backend = when (backend) {
+            DrumBackend.Noise   -> noiseDrumSynth
+            DrumBackend.Fm      -> fmDrumSynth
+            DrumBackend.Samples -> sampleDrumSynth
+        }
+        _uiState.value = _uiState.value.copy(drumBackend = backend)
     }
 
     override fun onCleared() {

@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
                         onStopScan = { vm.stopScan() },
                         onConnect = { vm.connect(it) },
                         onDisconnect = { vm.disconnect() },
+                        onSetDrumBackend = { vm.setDrumBackend(it) },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
