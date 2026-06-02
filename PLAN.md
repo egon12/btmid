@@ -138,7 +138,7 @@ Same pattern as existing code — no new locking primitives:
 - [x] **Step 3** — Complete `FmDrumSynth` with all remaining GM types (hats, crash, ride, toms)
 - [x] **Step 4** — `SampleBank` + `SampleDrumSynth`; add sample assets; verify sample playback
 - [x] **Step 5** — `DrumEngineSelector` UI + `MainViewModel` state; live switching between all three backends
-- [ ] **Step 6** *(optional)* — Persist selected backend across app restarts via `DataStore`
+- [x] **Step 6** *(optional)* — Persist selected backend across app restarts via `DataStore`
 
 ---
 

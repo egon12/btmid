@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.egon12.btmid.bluetooth.BleMidiConnection
 import org.egon12.btmid.bluetooth.BleScanner
@@ -57,12 +58,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val audioEngine = AudioEngine(pianoSynth, drumProxy)
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
+    private val drumBackendStore = DrumBackendStore(application)
 
     init {
         audioEngine.start()
         viewModelScope.launch {
             withContext(Dispatchers.IO) { sampleBank.load() }
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
+        }
+        viewModelScope.launch {
+            val saved = drumBackendStore.drumBackend.first()
+            setDrumBackend(saved)
         }
         viewModelScope.launch {
             midiRouter.events.collect { event ->
@@ -137,6 +143,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             DrumBackend.Samples -> sampleDrumSynth
         }
         _uiState.value = _uiState.value.copy(drumBackend = backend)
+        viewModelScope.launch { drumBackendStore.save(backend) }
     }
 
     override fun onCleared() {
