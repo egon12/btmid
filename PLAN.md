@@ -21,8 +21,7 @@ Introduce a `DrumSynth` interface so both backends are interchangeable:
 interface DrumSynth {
     fun noteOn(note: Int, velocity: Int)
     fun noteOff(note: Int)
-    fun render(buffer: FloatArray, offset: Int, length: Int)
-    fun allNotesOff()
+    fun render(buffer: FloatArray)
 }
 ```
 
@@ -44,8 +43,8 @@ ui/DrumEngineSelector.kt        — Compose toggle: FM Synth | Samples (+ curren
 ### Renamed / Modified
 ```
 synth/DrumSynth.kt   → synth/NoiseDrumSynth.kt  (implement DrumSynth interface)
-synth/AudioEngine.kt — hold a DrumSynth reference; expose fun setDrumBackend(backend)
-MainViewModel.kt     — expose drumBackend: StateFlow<DrumBackend>; action setDrumBackend()
+synth/AudioEngine.kt — holds DrumSynthProxy (backend swap via @Volatile, no setDrumBackend method)
+MainViewModel.kt     — expose drumBackend: DrumBackend in UiState; action setDrumBackend()
 ui/MainScreen.kt     — embed DrumEngineSelector in settings/toolbar area
 ```
 
@@ -86,19 +85,15 @@ Frequency sweep (kick/toms): `f(t) = fEnd + (fStart - fEnd) × e^(-t / sweepTau)
 
 **Location:** `app/src/main/assets/samples/drums/`
 
-| File | GM notes | Target size |
-|------|----------|-------------|
-| `kick.ogg` | 35, 36 | ~80 KB |
-| `snare.ogg` | 38, 40 | ~60 KB |
-| `closed_hat.ogg` | 42 | ~30 KB |
-| `open_hat.ogg` | 46 | ~50 KB |
-| `crash.ogg` | 49, 57 | ~90 KB |
-| `ride.ogg` | 51 | ~70 KB |
-| `tom_low.ogg` | 41, 43 | ~60 KB |
-| `tom_mid.ogg` | 45, 47 | ~60 KB |
-| `tom_high.ogg` | 48, 50 | ~60 KB |
-
-**Total APK addition: ~560 KB**
+| File | GM notes |
+|------|----------|
+| `kick.ogg` | 35, 36 |
+| `snare.ogg` | 38, 40 |
+| `closed_hat.ogg` | 42 |
+| `open_hat.ogg` | 46 |
+| `crash.ogg` | 49, 57 |
+| `ride.ogg` | 51 |
+| `tom.ogg` | 41, 43, 45, 47, 48, 50 (all toms share one file) |
 
 Source options (all CC0/public domain): Freepats, samples-from-mscore, or LMMS default kit.
 
@@ -126,13 +121,13 @@ Same pattern as existing code — no new locking primitives:
 
 - `noteOn`/`noteOff` post a command into a `ConcurrentLinkedQueue`
 - Render loop drains queue at top of each pass
-- Backend swap: `AudioEngine` holds `@Volatile var activeDrumSynth: DrumSynth`; swap is written from main thread, read from render thread — one-word volatile write is safe
+- Backend swap: `DrumSynthProxy` holds `@Volatile var backend: DrumSynth`; swap is written from main thread, read from render thread — one-word volatile write is safe
 
 ---
 
 ## Delivery Steps
 
-- [ ] **Step 0** — This plan ✓
+- [x] **Step 0** — This plan ✓
 - [x] **Step 1** — Extract `DrumSynth` interface; rename existing class to `NoiseDrumSynth`; wire `AudioEngine` to hold interface reference — app still works identically
 - [x] **Step 2** — `FmDrumSynth`: implement kick + snare only; swap manually in code to verify FM sounds play
 - [x] **Step 3** — Complete `FmDrumSynth` with all remaining GM types (hats, crash, ride, toms)
