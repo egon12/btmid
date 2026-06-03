@@ -57,8 +57,7 @@ fun MainScreen(
         } else {
             StatusRow(
                 connectionStatus = uiState.connectionStatus,
-                connectedDeviceName = uiState.discoveredDevices
-                    .find { it.address == uiState.connectedDeviceAddress }?.name,
+                connectedDeviceName = uiState.discoveredDevices.find { it.address == uiState.connectedDeviceAddress }?.name,
                 midiActivityPulse = uiState.midiActivityPulse,
             )
 
@@ -72,6 +71,12 @@ fun MainScreen(
                 selected = uiState.drumBackend,
                 samplesLoaded = uiState.samplesLoaded,
                 onSelect = onSetDrumBackend,
+            )
+
+            DrumTrigger(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
             )
 
             PianoKeyboard(
@@ -121,13 +126,13 @@ private fun StatusRow(
 @Composable
 private fun ConnectionStatusBadge(status: ConnectionStatus, deviceName: String?) {
     val color = when (status) {
-        ConnectionStatus.Idle      -> MaterialTheme.colorScheme.outline
-        ConnectionStatus.Scanning  -> MaterialTheme.colorScheme.tertiary
+        ConnectionStatus.Idle -> MaterialTheme.colorScheme.outline
+        ConnectionStatus.Scanning -> MaterialTheme.colorScheme.tertiary
         ConnectionStatus.Connected -> MaterialTheme.colorScheme.primary
     }
     val label = when (status) {
-        ConnectionStatus.Idle      -> "Not connected"
-        ConnectionStatus.Scanning  -> "Scanning..."
+        ConnectionStatus.Idle -> "Not connected"
+        ConnectionStatus.Scanning -> "Scanning..."
         ConnectionStatus.Connected -> "Connected: ${deviceName ?: "unknown"}"
     }
     Row(
