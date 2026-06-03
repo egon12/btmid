@@ -1,144 +1,247 @@
-# Drum Sound Upgrade — FM Synth + Sample Playback
+# Latency Reduction — Target <15 ms
 
 ## Goal
 
-Upgrade the drum engine from the current noise-burst synthesis to two higher-quality backends that the user can switch between at runtime:
+Reduce the felt latency between hitting a drum pad and hearing the sound. Sub-10 ms total is not achievable over BLE MIDI (7.5 ms minimum BLE connection interval is a hard protocol constraint), but the current setup is much worse than it needs to be.
 
-| Backend | Description |
-|---------|-------------|
-| **FM Synth** | Operator-based frequency modulation — no assets, fully algorithmic |
-| **Samples** | Pre-loaded OGG per drum type — highest realism, same onset latency |
+| Source | Current | After fix |
+|--------|---------|-----------|
+| BLE connection interval | ~30–45 ms (default) | ~7–10 ms |
+| Audio output (AudioTrack write-loop) | ~20–30 ms | ~5–8 ms |
+| **Total** | **~50–75 ms** | **~12–18 ms** |
 
-Piano is unchanged. The existing `PianoSynth` and `AudioEngine` stay as-is.
+Piano latency is a non-goal for now, but the new C++ engine covers it naturally.
 
 ---
 
-## Architecture
+## Architecture — Full Realtime Path in C++
 
-Introduce a `DrumSynth` interface so both backends are interchangeable:
+Java handles device discovery and one-time connection setup (unavoidable — no NDK API exists for `MidiManager` or `BluetoothGatt`). After that, **all realtime work moves to C++**: MIDI polling via AMidi, parsing, routing, synthesis, and audio output via Oboe. No Java callbacks on the hot path.
 
-```kotlin
-interface DrumSynth {
-    fun noteOn(note: Int, velocity: Int)
-    fun noteOff(note: Int)
-    fun render(buffer: FloatArray)
-}
+```
+[Java — setup only, runs once per connection]
+BluetoothDevice
+  → connectGatt(TRANSPORT_LE)
+      onConnected → gatt.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)
+  → MidiManager.openBluetoothDevice() → MidiDevice
+      → MidiDevice.openOutputPort(0) → MidiOutputPort
+          → JNI: NativeEngine.setOutputPort(jOutputPort)   ← hand off to C++
+
+[C++ — all realtime work]
+Oboe onAudioReady(buffer, frames):
+  while AMidiOutputPort_receive() has data:
+    MidiParser::parse(bytes) → NoteOn / NoteOff / CC
+    channel 0 → pianoRenderer.noteOn/Off(note, velocity)
+    channel 9 → drumRenderer.noteOn/Off(note, velocity)
+    → post event to UI queue (non-blocking, for event log only)
+  for renderer in renderers:
+    renderer.render(buffer, frames)        ← AudioRenderer interface
+  → Oboe → audio hardware
 ```
 
-The existing `DrumSynth.kt` becomes `NoiseDrumSynth.kt` (rename, implement interface) — kept as a fallback.
+AMidi (`AMidiOutputPort_receive`) is non-blocking and polled at the top of each `onAudioReady()` call, so MIDI events are consumed with zero extra thread hops — minimum possible latency from arrival to sound.
+
+---
+
+## C++ Interface — AudioRenderer
+
+All synth backends implement one interface. The Oboe callback is completely agnostic about what renders:
+
+```cpp
+class AudioRenderer {
+public:
+    virtual ~AudioRenderer() = default;
+    virtual void noteOn(int channel, int note, int velocity) = 0;
+    virtual void noteOff(int channel, int note) = 0;
+    virtual void render(float* buffer, int32_t frames) = 0;
+};
+```
+
+This also makes future backends (SF2 via FluidSynth, statically-linked synth plugins) drop-in replacements.
 
 ---
 
 ## New / Changed Files
 
-### New
 ```
-synth/DrumSynth.kt              — interface (above)
-synth/FmDrumSynth.kt            — FM operator engine per GM drum type
-synth/SampleBank.kt             — decodes OGG assets → FloatArray[], keyed by drum name
-synth/SampleDrumSynth.kt        — plays back pre-loaded samples
-ui/DrumEngineSelector.kt        — Compose toggle: FM Synth | Samples (+ current noise-burst)
+app/src/main/cpp/
+  CMakeLists.txt
+  NativeEngine.cpp/.h      — owns Oboe stream + AMidi port + renderer list
+  MidiParser.cpp/.h        — pure C++ byte parser (mirrors current MidiParser.kt)
+  AudioRenderer.h          — abstract interface (above)
+  renderers/
+    PianoRenderer.cpp/.h   — port of PianoSynth.kt
+    NoiseDrumRenderer.cpp/.h
+    FmDrumRenderer.cpp/.h
+    SampleDrumRenderer.cpp/.h
+  jni_bridge.cpp           — JNI entry points (see below)
+
+synth/AudioEngine.kt       — replaced: thin wrapper holding native pointer, calls JNI
+bluetooth/BleMidiConnection.kt — adds GATT handle + CONNECTION_PRIORITY_HIGH
+midi/AppMidiReceiver.kt    — removed (AMidi replaces it on the audio path)
+midi/MidiParser.kt         — removed (replaced by C++)
+midi/MidiRouter.kt         — removed (replaced by C++)
+build.gradle.kts           — add cmake block; add oboe + amidi prefab deps
 ```
 
-### Renamed / Modified
-```
-synth/DrumSynth.kt   → synth/NoiseDrumSynth.kt  (implement DrumSynth interface)
-synth/AudioEngine.kt — holds DrumSynthProxy (backend swap via @Volatile, no setDrumBackend method)
-MainViewModel.kt     — expose drumBackend: DrumBackend in UiState; action setDrumBackend()
-ui/MainScreen.kt     — embed DrumEngineSelector in settings/toolbar area
+### JNI surface (`jni_bridge.cpp`)
+
+```cpp
+// lifecycle
+jlong  NativeEngine_create(JNIEnv*, jobject)
+void   NativeEngine_setOutputPort(JNIEnv*, jobject, jlong ptr, jobject jOutputPort)
+void   NativeEngine_start(JNIEnv*, jobject, jlong ptr)
+void   NativeEngine_stop(JNIEnv*, jobject, jlong ptr)
+void   NativeEngine_destroy(JNIEnv*, jobject, jlong ptr)
+// runtime control
+void   NativeEngine_setDrumBackend(JNIEnv*, jobject, jlong ptr, jint backendId)
+void   NativeEngine_registerEventCallback(JNIEnv*, jobject, jlong ptr, jobject listener)
 ```
 
-### Unchanged
-```
-synth/PianoSynth.kt, synth/Voice.kt
-midi/MidiRouter.kt, midi/MidiParser.kt, midi/MidiEvent.kt
-bluetooth/
-```
+`registerEventCallback` stores a global JNI ref to a Kotlin `MidiEventListener`. The engine posts events to a separate lock-free queue; a dedicated non-realtime thread drains that queue and calls the listener — this is the only path back to Kotlin and only exists for the UI event log.
 
 ---
 
-## FM Drum Synthesis — Per-Instrument Design
+## Phase 1 — BLE Connection Priority (pure Kotlin)
 
-Each GM note maps to an FM "patch" (carrier + one modulator unless noted):
+`MidiManager.openBluetoothDevice` creates a GATT connection internally but never requests a high-priority connection interval. Opening our own GATT handle to the same device first and calling `requestConnectionPriority(CONNECTION_PRIORITY_HIGH)` lowers the shared connection interval from ~30–45 ms to ~7.5 ms.
 
-| GM Note(s) | Sound | Carrier | Modulator | Env |
-|------------|-------|---------|-----------|-----|
-| 35 / 36 | Bass Drum | 50 Hz sine, sweep → 30 Hz | self-FM index 4→0 | 180 ms exp |
-| 38 / 40 | Snare | 200 Hz + white noise | mod index 2, 180 Hz mod freq | 120 ms |
-| 42 | Closed Hi-Hat | 6-op ratio stack (8:1 ratio) → metallic | high mod index | 45 ms |
-| 46 | Open Hi-Hat | same as closed hat | — | 350 ms |
-| 49 / 57 | Crash | noise-seeded 6-op stack | random phases | 900 ms |
-| 51 | Ride | 600 Hz + 3-op metallic | mod index 1.5 | 500 ms |
-| 41 / 43 / 45 / 47 / 48 / 50 | Toms | 120–180 Hz sweep, self-FM | index 3→0 | 150 ms |
+### Changes — `BleMidiConnection.kt`
 
-FM formula per sample:
-```
-mod  = sin(2π × fMod × t + modIndex × sin(2π × fMod × t))   // self-FM or separate mod
-out  = amplitude × env(t) × sin(2π × fCarrier × t + modDepth × mod)
-```
+1. Add `connectGatt(context, false, gattCallback, TRANSPORT_LE)` before `openBluetoothDevice`
+2. In `onConnectionStateChange(STATE_CONNECTED)` → `gatt.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)`
+3. Hold both `BluetoothGatt` and `MidiDevice`; close both on `disconnect()`
 
-Frequency sweep (kick/toms): `f(t) = fEnd + (fStart - fEnd) × e^(-t / sweepTau)`
+**Expected gain:** ~25–35 ms off BLE latency.
+
+### Delivery Steps
+
+- [x] **P1-1** — Add GATT handle + priority request in `BleMidiConnection`
+- [x] **P1-2** — Confirm connect / disconnect lifecycle has no regression
 
 ---
 
-## Sample Assets
+## Phase 2 — Native Engine (C++/NDK)
 
-**Location:** `app/src/main/assets/samples/drums/`
+Oboe with `EXCLUSIVE` sharing mode + `LOW_LATENCY` performance mode uses a hardware callback that bypasses Android's software mixer. AMidi eliminates Java callbacks on the MIDI receive path. Together these target **5–8 ms output latency** on modern hardware.
 
-| File | GM notes |
-|------|----------|
-| `kick.ogg` | 35, 36 |
-| `snare.ogg` | 38, 40 |
-| `closed_hat.ogg` | 42 |
-| `open_hat.ogg` | 46 |
-| `crash.ogg` | 49, 57 |
-| `ride.ogg` | 51 |
-| `tom.ogg` | 41, 43, 45, 47, 48, 50 (all toms share one file) |
+Each step below leaves the Kotlin synths active and the app fully working. The strategy: port all renderers with host WAV tests first, then do one Kotlin switch (P2-7) that immediately gives full C++ sounds — no intermediate "everything is 440 Hz sine" phase.
 
-Source options (all CC0/public domain): Freepats, samples-from-mscore, or LMMS default kit.
-
-**OGG decoding:** `MediaCodec` + `MediaExtractor` at startup (~100 ms for ~560 KB). Decoded once → mono 44100 Hz `FloatArray` per file. No external library.
+Host test harness lives in `cpp_host_tests/` (standalone CMake, macOS-native, no Oboe dep). Each renderer step adds test cases + WAV output to `renderer_test.cpp`.
 
 ---
 
-## UI — Backend Selector
+### ~~P2-1 — Build infrastructure (no behavior change)~~ ✅ Done
 
-A segmented control (three-chip row) in `MainScreen`:
+Add NDK + CMake to the project. No C++ code that does anything yet.
 
-```
-[ Noise (current) ]  [ FM Synth ]  [ Samples ]
-```
+- Add `ndkVersion`, `cmake {}` block to `build.gradle.kts`
+- Add Oboe prefab AAR dependency
+- Create `app/src/main/cpp/CMakeLists.txt` — links Oboe, produces `libbtmid.so`
+- Create `app/src/main/cpp/NativeEngine.cpp` — empty class, exports one JNI stub `NativeEngine_create` that returns 0
+- `./gradlew assembleDebug` passes; `.so` appears in APK
 
-- Shown below the connection status row, always visible (not hidden in a settings sheet)
-- Switching is instant — `AudioEngine.setDrumBackend()` swaps the reference between render passes using `@Volatile` + a pending-swap queue (same pattern as note events)
-- "Samples" chip is greyed out with a loading indicator until `SampleBank` finishes decoding at startup
-
----
-
-## Thread Safety
-
-Same pattern as existing code — no new locking primitives:
-
-- `noteOn`/`noteOff` post a command into a `ConcurrentLinkedQueue`
-- Render loop drains queue at top of each pass
-- Backend swap: `DrumSynthProxy` holds `@Volatile var backend: DrumSynth`; swap is written from main thread, read from render thread — one-word volatile write is safe
+**Test:** build succeeds. App behavior unchanged.
 
 ---
 
-## Delivery Steps
+### ~~P2-2 — C++ infra + SineTestRenderer + host test harness~~ ✅ Done
 
-- [x] **Step 0** — This plan ✓
-- [x] **Step 1** — Extract `DrumSynth` interface; rename existing class to `NoiseDrumSynth`; wire `AudioEngine` to hold interface reference — app still works identically
-- [x] **Step 2** — `FmDrumSynth`: implement kick + snare only; swap manually in code to verify FM sounds play
-- [x] **Step 3** — Complete `FmDrumSynth` with all remaining GM types (hats, crash, ride, toms)
-- [x] **Step 4** — `SampleBank` + `SampleDrumSynth`; add sample assets; verify sample playback
-- [x] **Step 5** — `DrumEngineSelector` UI + `MainViewModel` state; live switching between all three backends
-- [x] **Step 6** *(optional)* — Persist selected backend across app restarts via `DataStore`
+- `AudioRenderer.h` — abstract interface
+- `SineTestRenderer.cpp/.h` — 440 Hz sine for 500 ms on any `noteOn`
+- `NativeEngine.cpp/.h` — opens Oboe stream (`EXCLUSIVE` + `LOW_LATENCY`), renders via `AudioRenderer` list in `onAudioReady()`
+- `jni_bridge.cpp` — JNI entry points: `create`, `start`, `stop`, `destroy`, `noteOn`, `noteOff`
+- `NativeAudioEngine.kt` — thin Kotlin singleton holding native pointer
+- `cpp_host_tests/` — CMake host build; `renderer_test.cpp` asserts silence/sound/decay and writes WAV files
+
+Kotlin synths (`AudioEngine.kt`, `MidiRouter.kt`) **unchanged** — Kotlin wiring deferred to P2-7.
+
+**Test:** 4 host assertions pass; `sine_test.wav` sounds correct.
 
 ---
 
-## Deferred
+### ~~P2-3 — NoiseDrumRenderer~~ ✅ Done
 
-- Piano upgrade (samples / FM) — separate plan
-- Control Change (CC) handling
-- Per-velocity sample layers
+Port `NoiseDrumSynth.kt` to C++. Validate sound with a host WAV test.
+
+- `renderers/NoiseDrumRenderer.cpp/.h` — direct port of the noise-burst logic per GM note
+- Add `NoiseDrumRenderer` test to `cpp_host_tests/renderer_test.cpp`: trigger each drum type (kick, snare, hat, crash, ride), write `noise_drums.wav`
+
+**Test:** host assertions pass; `noise_drums.wav` sounds correct for all drum types.
+
+---
+
+### P2-4 — FmDrumRenderer
+
+Port `FmDrumSynth.kt` to C++.
+
+- `renderers/FmDrumRenderer.cpp/.h` — port of FM operator logic per GM note
+- Add `FmDrumRenderer` test to `cpp_host_tests/renderer_test.cpp`: same drum sequence, write `fm_drums.wav`
+
+**Test:** host assertions pass; `fm_drums.wav` sounds correct. Compare with `noise_drums.wav` to hear the difference.
+
+---
+
+### P2-5 — PianoRenderer
+
+Port `PianoSynth.kt` to C++.
+
+- `renderers/PianoRenderer.cpp/.h` — additive sine (5 harmonics) + ADSR envelope, 8-voice cap
+- Add `PianoRenderer` test to `cpp_host_tests/renderer_test.cpp`: play a C major chord, write `piano_chord.wav`
+
+**Test:** host assertions pass; `piano_chord.wav` sounds like the current Kotlin piano.
+
+---
+
+### P2-6 — SampleDrumRenderer
+
+OGG decoding stays in Kotlin (`MediaCodec`) — no NDK equivalent. Decoded `FloatArray`s are passed to C++ once at startup.
+
+- `renderers/SampleDrumRenderer.cpp/.h` — holds `float*` per drum name; `render()` mixes the relevant buffer
+- Add `NativeEngine_loadSample(name: String, floatArray: FloatArray)` JNI method
+- `SampleBank.kt` decodes OGGs as before, then calls `loadSample` for each file
+
+No host WAV test (samples come from Android assets); validated on device in P2-7.
+
+---
+
+### P2-7 — Kotlin wiring (all C++ sounds go live)
+
+Switch `AudioEngine.kt` and `MidiRouter.kt` to `NativeAudioEngine`. All real sounds come from C++ immediately — no 440 Hz sine phase.
+
+- Replace `AudioEngine.kt`: drop `AudioTrack`; call `NativeAudioEngine.start()/stop()`
+- Replace `MidiRouter.kt`: call `NativeAudioEngine.noteOn/noteOff` instead of Kotlin synths
+- Update `MainViewModel`: remove synth args from `AudioEngine` + `MidiRouter` constructors; wire `setDrumBackend` to `NativeAudioEngine.setDrumBackend(int)`
+- Add `NativeEngine_setDrumBackend(int)` JNI method; `NativeEngine` swaps drum backend atomically
+- `NativeEngine` routes: channel 0 → `PianoRenderer`, channel 9 → active drum renderer
+- Remove `SineTestRenderer`
+
+**Test:** piano + all three drum backends work on device. `DrumEngineSelector` UI switches backends at runtime.
+
+---
+
+### P2-8 — AMidi input (no Java on the hot path)
+
+Replace the Kotlin `MidiRouter` → JNI `noteOn/noteOff` call chain with native AMidi polling directly inside `onAudioReady()`.
+
+- In `BleMidiConnection.kt`: after `openBluetoothDevice`, pass the `MidiOutputPort` Java object to C++ via `NativeEngine_setOutputPort(jOutputPort)`
+- `NativeEngine.cpp`: call `AMidiOutputPort_fromJava(env, jOutputPort)`; poll `AMidiOutputPort_receive()` at the top of every `onAudioReady()`; parse bytes with `MidiParser.cpp`; dispatch to renderers
+- Add a lock-free event queue in `NativeEngine`; a dedicated non-realtime thread drains it and calls a registered Kotlin `MidiEventListener` for the UI event log and MIDI activity indicator
+
+**Test:** MIDI activity indicator and event log still update. Audio path no longer involves any Kotlin on each note event.
+
+---
+
+### P2-9 — Cleanup + latency measurement
+
+Remove files that are now dead code; confirm latency improvement.
+
+- Delete `AppMidiReceiver.kt`, `MidiParser.kt`, `MidiRouter.kt`, `PianoSynth.kt`, `NoiseDrumSynth.kt`, `FmDrumSynth.kt`, `SampleDrumSynth.kt`, `SampleBank.kt`, `DrumSynth.kt` (interface), `AudioEngine.kt`
+- Measure round-trip latency using a loopback cable + `AudioLatencyTester` or logcat timestamps on `noteOn` vs first audio sample
+- Confirm audio output latency <10 ms on test device
+
+---
+
+## Recommended Order
+
+Phase 1 first (standalone win, no NDK) → Phase 2 (main win, each step leaves app runnable)

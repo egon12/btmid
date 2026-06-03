@@ -1,6 +1,9 @@
 package org.egon12.btmid.bluetooth
 
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiManager
@@ -13,9 +16,10 @@ import org.egon12.btmid.midi.MidiRouter
 
 private const val TAG = "BleMidiConnection"
 
-class BleMidiConnection(context: Context) {
+class BleMidiConnection(private val context: Context) {
 
     private val midiManager = context.getSystemService(MidiManager::class.java)
+    private var gatt: BluetoothGatt? = null
     private var midiDevice: MidiDevice? = null
     private var outputPort: MidiOutputPort? = null
 
@@ -25,6 +29,16 @@ class BleMidiConnection(context: Context) {
         onConnected: () -> Unit,
         onError: (String) -> Unit,
     ) {
+        val gattCallback = object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
+                    Log.d(TAG, "GATT connected, requested high connection priority")
+                }
+            }
+        }
+        gatt = bluetoothDevice.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+
         midiManager.openBluetoothDevice(
             bluetoothDevice,
             { device ->
@@ -54,6 +68,8 @@ class BleMidiConnection(context: Context) {
         outputPort = null
         midiDevice?.close()
         midiDevice = null
+        gatt?.close()
+        gatt = null
         Log.d(TAG, "Disconnected")
     }
 }

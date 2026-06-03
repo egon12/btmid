@@ -13,3 +13,4 @@
 .externalNativeBuild
 .cxx
 local.properties
+cpp_host_tests/build
