@@ -7,6 +7,8 @@ add_library(btmid SHARED
         NativeEngine.cpp
         SineTestRenderer.cpp
         renderers/NoiseDrumRenderer.cpp
+        renderers/FmDrumRenderer.cpp
+        renderers/PianoRenderer.cpp
         jni_bridge.cpp
 )
 

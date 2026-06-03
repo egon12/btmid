@@ -171,7 +171,7 @@ Port `NoiseDrumSynth.kt` to C++. Validate sound with a host WAV test.
 
 ---
 
-### P2-4 — FmDrumRenderer
+### ~~P2-4 — FmDrumRenderer~~ ✅ Done
 
 Port `FmDrumSynth.kt` to C++.
 
@@ -182,7 +182,7 @@ Port `FmDrumSynth.kt` to C++.
 
 ---
 
-### P2-5 — PianoRenderer
+### ~~P2-5 — PianoRenderer~~ ✅ Done
 
 Port `PianoSynth.kt` to C++.
 

@@ -10,6 +10,8 @@ add_executable(renderer_test
     renderer_test.cpp
     ${ENGINE_SRC}/SineTestRenderer.cpp
     ${ENGINE_SRC}/renderers/NoiseDrumRenderer.cpp
+    ${ENGINE_SRC}/renderers/FmDrumRenderer.cpp
+    ${ENGINE_SRC}/renderers/PianoRenderer.cpp
 )
 
 target_include_directories(renderer_test PRIVATE ${ENGINE_SRC})
