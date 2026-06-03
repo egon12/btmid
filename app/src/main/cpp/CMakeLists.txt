@@ -4,6 +4,7 @@ project(btmid)
 find_package(oboe REQUIRED CONFIG)
 
 add_library(btmid SHARED
+        MidiParser.cpp
         NativeEngine.cpp
         SineTestRenderer.cpp
         renderers/NoiseDrumRenderer.cpp
@@ -17,4 +18,5 @@ target_link_libraries(btmid
         oboe::oboe
         log
         android
+        amidi
 )

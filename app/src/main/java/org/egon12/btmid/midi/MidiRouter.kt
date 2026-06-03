@@ -5,16 +5,18 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.egon12.btmid.synth.NativeAudioEngine
 
-class MidiRouter {
+class MidiRouter : NativeAudioEngine.MidiEventListener {
     private val _events = MutableSharedFlow<MidiEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<MidiEvent> = _events.asSharedFlow()
 
-    fun route(event: MidiEvent) {
-        _events.tryEmit(event)
-        when (event) {
-            is MidiEvent.NoteOn  -> NativeAudioEngine.noteOn(event.channel, event.note, event.velocity)
-            is MidiEvent.NoteOff -> NativeAudioEngine.noteOff(event.channel, event.note)
-            is MidiEvent.ControlChange -> Unit
+    // Called from the C++ dispatch thread after AMidi parses each event
+    override fun onMidiEvent(channel: Int, type: Int, data1: Int, data2: Int) {
+        val event: MidiEvent = when (type) {
+            0x80 -> MidiEvent.NoteOff(channel, data1, data2)
+            0x90 -> MidiEvent.NoteOn(channel, data1, data2)
+            0xB0 -> MidiEvent.ControlChange(channel, data1, data2)
+            else -> return
         }
+        _events.tryEmit(event)
     }
 }

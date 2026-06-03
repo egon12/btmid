@@ -58,4 +58,16 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_loadSample(
     env->ReleaseFloatArrayElements(jdata, data, JNI_ABORT);
 }
 
+JNIEXPORT void JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_setOutputPort(
+        JNIEnv* env, jobject, jlong ptr, jobject jDevice, jobject jCallback) {
+    ENGINE(ptr)->setOutputPort(env, jDevice, jCallback);
+}
+
+JNIEXPORT void JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_clearOutputPort(
+        JNIEnv*, jobject, jlong ptr) {
+    ENGINE(ptr)->clearOutputPort();
+}
+
 } // extern "C"

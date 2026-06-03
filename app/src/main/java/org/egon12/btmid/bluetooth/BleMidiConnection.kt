@@ -7,12 +7,11 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiManager
-import android.media.midi.MidiOutputPort
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import org.egon12.btmid.midi.AppMidiReceiver
 import org.egon12.btmid.midi.MidiRouter
+import org.egon12.btmid.synth.NativeAudioEngine
 
 private const val TAG = "BleMidiConnection"
 
@@ -21,7 +20,6 @@ class BleMidiConnection(private val context: Context) {
     private val midiManager = context.getSystemService(MidiManager::class.java)
     private var gatt: BluetoothGatt? = null
     private var midiDevice: MidiDevice? = null
-    private var outputPort: MidiOutputPort? = null
 
     fun connect(
         bluetoothDevice: BluetoothDevice,
@@ -48,15 +46,8 @@ class BleMidiConnection(private val context: Context) {
                     return@openBluetoothDevice
                 }
                 midiDevice = device
-                val port = device.openOutputPort(0)
-                if (port == null) {
-                    Log.e(TAG, "Failed to open output port")
-                    onError("Failed to open output port")
-                    return@openBluetoothDevice
-                }
-                outputPort = port
-                port.connect(AppMidiReceiver(router))
-                Log.d(TAG, "Connected to MIDI device: ${bluetoothDevice.address}")
+                NativeAudioEngine.setOutputPort(device, router)
+                Log.d(TAG, "Connected to MIDI device via AMidi: ${bluetoothDevice.address}")
                 onConnected()
             },
             Handler(Looper.getMainLooper())
@@ -64,8 +55,7 @@ class BleMidiConnection(private val context: Context) {
     }
 
     fun disconnect() {
-        outputPort?.close()
-        outputPort = null
+        NativeAudioEngine.clearOutputPort()
         midiDevice?.close()
         midiDevice = null
         gatt?.close()
