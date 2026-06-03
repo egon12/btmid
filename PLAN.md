@@ -205,7 +205,7 @@ No host WAV test (samples come from Android assets); validated on device in P2-7
 
 ---
 
-### P2-7 — Kotlin wiring (all C++ sounds go live)
+### ~~P2-7 — Kotlin wiring (all C++ sounds go live)~~ ✅ Done
 
 Switch `AudioEngine.kt` and `MidiRouter.kt` to `NativeAudioEngine`. All real sounds come from C++ immediately — no 440 Hz sine phase.
 

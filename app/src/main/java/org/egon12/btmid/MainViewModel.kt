@@ -16,12 +16,8 @@ import org.egon12.btmid.midi.MidiRouter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.egon12.btmid.synth.AudioEngine
-import org.egon12.btmid.synth.DrumSynthProxy
-import org.egon12.btmid.synth.FmDrumSynth
-import org.egon12.btmid.synth.NoiseDrumSynth
-import org.egon12.btmid.synth.PianoSynth
+import org.egon12.btmid.synth.NativeAudioEngine
 import org.egon12.btmid.synth.SampleBank
-import org.egon12.btmid.synth.SampleDrumSynth
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
@@ -48,14 +44,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .getSystemService(BluetoothManager::class.java)
         .adapter
 
-    private val pianoSynth = PianoSynth()
-    private val noiseDrumSynth = NoiseDrumSynth()
-    private val fmDrumSynth = FmDrumSynth()
     private val sampleBank = SampleBank(application)
-    private val sampleDrumSynth = SampleDrumSynth(sampleBank)
-    private val drumProxy = DrumSynthProxy(noiseDrumSynth)
-    private val midiRouter = MidiRouter(pianoSynth, drumProxy)
-    private val audioEngine = AudioEngine(pianoSynth, drumProxy)
+    private val midiRouter = MidiRouter()
+    private val audioEngine = AudioEngine()
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
     private val drumBackendStore = DrumBackendStore(application)
@@ -137,11 +128,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDrumBackend(backend: DrumBackend) {
-        drumProxy.backend = when (backend) {
-            DrumBackend.Noise   -> noiseDrumSynth
-            DrumBackend.Fm      -> fmDrumSynth
-            DrumBackend.Samples -> sampleDrumSynth
-        }
+        NativeAudioEngine.setDrumBackend(backend.ordinal)
         _uiState.value = _uiState.value.copy(drumBackend = backend)
         viewModelScope.launch { drumBackendStore.save(backend) }
     }

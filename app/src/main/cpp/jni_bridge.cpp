@@ -39,6 +39,12 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_noteOff(
 }
 
 JNIEXPORT void JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_setDrumBackend(
+        JNIEnv*, jobject, jlong ptr, jint backendId) {
+    ENGINE(ptr)->setDrumBackend(backendId);
+}
+
+JNIEXPORT void JNICALL
 Java_org_egon12_btmid_synth_NativeAudioEngine_loadSample(
         JNIEnv* env, jobject, jlong ptr, jstring jname, jfloatArray jdata) {
     const char* name = env->GetStringUTFChars(jname, nullptr);
