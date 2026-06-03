@@ -1,247 +1,113 @@
-# Latency Reduction — Target <15 ms
+# Plan: Touchable Piano Keyboard UI (One Octave, Multi-Touch)
 
-## Goal
+## Context
 
-Reduce the felt latency between hitting a drum pad and hearing the sound. Sub-10 ms total is not achievable over BLE MIDI (7.5 ms minimum BLE connection interval is a hard protocol constraint), but the current setup is much worse than it needs to be.
+The app currently receives MIDI from a BLE device. The user wants a virtual piano keyboard on-screen that can send noteOn/noteOff events directly to the NativeAudioEngine — enabling the app to make sound without any physical MIDI device connected. The keyboard must handle multiple simultaneous touches so chords are playable.
 
-| Source | Current | After fix |
-|--------|---------|-----------|
-| BLE connection interval | ~30–45 ms (default) | ~7–10 ms |
-| Audio output (AudioTrack write-loop) | ~20–30 ms | ~5–8 ms |
-| **Total** | **~50–75 ms** | **~12–18 ms** |
+## Key Findings
 
-Piano latency is a non-goal for now, but the new C++ engine covers it naturally.
+- **NativeAudioEngine** (singleton at `synth/NativeAudioEngine.kt:18`) exposes `noteOn(channel, note, velocity)` and `noteOff(channel, note)` — callable from any thread, no locking needed.
+- **Piano = channel 0** (as documented in CLAUDE.md and confirmed in MidiRouter routing logic).
+- **UI pattern**: All composables take state + lambda callbacks; `MainScreen.kt` hosts all sections in a scrollable `Column`.
+- **No existing touch/gesture handling** beyond standard `onClick` — this is the first use of `pointerInput`.
+- The NativeAudioEngine is started in `MainViewModel.init` unconditionally, so it's ready even before a BLE device connects.
 
----
+## Approach
 
-## Architecture — Full Realtime Path in C++
+### Visual Layout
 
-Java handles device discovery and one-time connection setup (unavoidable — no NDK API exists for `MidiManager` or `BluetoothGatt`). After that, **all realtime work moves to C++**: MIDI polling via AMidi, parsing, routing, synthesis, and audio output via Oboe. No Java callbacks on the hot path.
-
-```
-[Java — setup only, runs once per connection]
-BluetoothDevice
-  → connectGatt(TRANSPORT_LE)
-      onConnected → gatt.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)
-  → MidiManager.openBluetoothDevice() → MidiDevice
-      → MidiDevice.openOutputPort(0) → MidiOutputPort
-          → JNI: NativeEngine.setOutputPort(jOutputPort)   ← hand off to C++
-
-[C++ — all realtime work]
-Oboe onAudioReady(buffer, frames):
-  while AMidiOutputPort_receive() has data:
-    MidiParser::parse(bytes) → NoteOn / NoteOff / CC
-    channel 0 → pianoRenderer.noteOn/Off(note, velocity)
-    channel 9 → drumRenderer.noteOn/Off(note, velocity)
-    → post event to UI queue (non-blocking, for event log only)
-  for renderer in renderers:
-    renderer.render(buffer, frames)        ← AudioRenderer interface
-  → Oboe → audio hardware
-```
-
-AMidi (`AMidiOutputPort_receive`) is non-blocking and polled at the top of each `onAudioReady()` call, so MIDI events are consumed with zero extra thread hops — minimum possible latency from arrival to sound.
-
----
-
-## C++ Interface — AudioRenderer
-
-All synth backends implement one interface. The Oboe callback is completely agnostic about what renders:
-
-```cpp
-class AudioRenderer {
-public:
-    virtual ~AudioRenderer() = default;
-    virtual void noteOn(int channel, int note, int velocity) = 0;
-    virtual void noteOff(int channel, int note) = 0;
-    virtual void render(float* buffer, int32_t frames) = 0;
-};
-```
-
-This also makes future backends (SF2 via FluidSynth, statically-linked synth plugins) drop-in replacements.
-
----
-
-## New / Changed Files
+Draw one octave C4–B4 (MIDI notes 60–71) using Compose `Canvas`:
+- 7 white keys across the full width, equal width
+- 5 black keys overlaid at 60% white-key width, 62% total height
+- Pressed keys render in a highlight color (Material primaryContainer for white, primary for black)
 
 ```
-app/src/main/cpp/
-  CMakeLists.txt
-  NativeEngine.cpp/.h      — owns Oboe stream + AMidi port + renderer list
-  MidiParser.cpp/.h        — pure C++ byte parser (mirrors current MidiParser.kt)
-  AudioRenderer.h          — abstract interface (above)
-  renderers/
-    PianoRenderer.cpp/.h   — port of PianoSynth.kt
-    NoiseDrumRenderer.cpp/.h
-    FmDrumRenderer.cpp/.h
-    SampleDrumRenderer.cpp/.h
-  jni_bridge.cpp           — JNI entry points (see below)
-
-synth/AudioEngine.kt       — replaced: thin wrapper holding native pointer, calls JNI
-bluetooth/BleMidiConnection.kt — adds GATT handle + CONNECTION_PRIORITY_HIGH
-midi/AppMidiReceiver.kt    — removed (AMidi replaces it on the audio path)
-midi/MidiParser.kt         — removed (replaced by C++)
-midi/MidiRouter.kt         — removed (replaced by C++)
-build.gradle.kts           — add cmake block; add oboe + amidi prefab deps
+  [C#][D#]   [F#][G#][A#]
+[C ][D ][E ][F ][G ][A ][B ]
 ```
 
-### JNI surface (`jni_bridge.cpp`)
+Key MIDI notes:
+| Key | Note | Position |
+|-----|------|----------|
+| C   | 60   | white 0  |
+| C#  | 61   | black, centered at x = 1 × whiteW |
+| D   | 62   | white 1  |
+| D#  | 63   | black, centered at x = 2 × whiteW |
+| E   | 64   | white 2  |
+| F   | 65   | white 3  |
+| F#  | 66   | black, centered at x = 4 × whiteW |
+| G   | 67   | white 4  |
+| G#  | 68   | black, centered at x = 5 × whiteW |
+| A   | 69   | white 5  |
+| A#  | 70   | black, centered at x = 6 × whiteW |
+| B   | 71   | white 6  |
 
-```cpp
-// lifecycle
-jlong  NativeEngine_create(JNIEnv*, jobject)
-void   NativeEngine_setOutputPort(JNIEnv*, jobject, jlong ptr, jobject jOutputPort)
-void   NativeEngine_start(JNIEnv*, jobject, jlong ptr)
-void   NativeEngine_stop(JNIEnv*, jobject, jlong ptr)
-void   NativeEngine_destroy(JNIEnv*, jobject, jlong ptr)
-// runtime control
-void   NativeEngine_setDrumBackend(JNIEnv*, jobject, jlong ptr, jint backendId)
-void   NativeEngine_registerEventCallback(JNIEnv*, jobject, jlong ptr, jobject listener)
+### Multi-Touch Handling
+
+Use a single `Modifier.pointerInput(Unit)` with `awaitPointerEventScope` on the whole keyboard Canvas. Track a `mutableStateMapOf<PointerId, Int>()` (pointer → active note):
+
+```
+PointerEventType.Press   → hitTest(pos) → noteOn(0, note, 100); add to map
+PointerEventType.Release → map[id]?.let { noteOff(0, it) }; remove from map
+PointerEventType.Move    → re-hitTest; if note changed, noteOff(old) + noteOn(new)
 ```
 
-`registerEventCallback` stores a global JNI ref to a Kotlin `MidiEventListener`. The engine posts events to a separate lock-free queue; a dedicated non-realtime thread drains that queue and calls the listener — this is the only path back to Kotlin and only exists for the UI event log.
+Hit-test order: check black keys first (they sit on top), then white keys.
 
----
+### Direct NativeAudioEngine Calls
 
-## Phase 1 — BLE Connection Priority (pure Kotlin)
+No ViewModel changes needed — call `NativeAudioEngine.noteOn/Off` directly from the composable's `pointerInput` lambda. This keeps latency minimal (no coroutine dispatch, no state update cycle). The `MidiActivityIndicator` and event log will not reflect these taps (they only show BLE events), which is acceptable for now.
 
-`MidiManager.openBluetoothDevice` creates a GATT connection internally but never requests a high-priority connection interval. Opening our own GATT handle to the same device first and calling `requestConnectionPriority(CONNECTION_PRIORITY_HIGH)` lowers the shared connection interval from ~30–45 ms to ~7.5 ms.
+## Files to Create / Modify
 
-### Changes — `BleMidiConnection.kt`
+### 1. New: `app/src/main/java/org/egon12/btmid/ui/PianoKeyboard.kt`
 
-1. Add `connectGatt(context, false, gattCallback, TRANSPORT_LE)` before `openBluetoothDevice`
-2. In `onConnectionStateChange(STATE_CONNECTED)` → `gatt.requestConnectionPriority(CONNECTION_PRIORITY_HIGH)`
-3. Hold both `BluetoothGatt` and `MidiDevice`; close both on `disconnect()`
+```kotlin
+@Composable
+fun PianoKeyboard(modifier: Modifier = Modifier)
+```
 
-**Expected gain:** ~25–35 ms off BLE latency.
+Responsibilities:
+- `remember { mutableStateMapOf<PointerId, Int>() }` for pressed-key visual state
+- `Canvas(modifier.pointerInput(Unit) { ... })` — draw + handle touch in one composable
+- `drawPianoKeys(scope, pressedNotes)` — internal draw helper
+  - Draw 7 white key rects, outline borders, fill highlight if in pressedNotes
+  - Draw 5 black key rects on top, fill highlight if pressed
+- `hitTest(offset, size): Int` — returns MIDI note or -1 if no key hit
+  - Compute `whiteKeyWidth = size.width / 7f`
+  - Check black key rects first (narrower, higher priority)
+  - Fallback to white key index
+- `awaitPointerEventScope` loop:
+  - Press: `change.pressed && !change.previousPressed` → `hitTest` → `noteOn`, add to map
+  - Release: `!change.pressed && change.previousPressed` → noteOff old note, remove from map
+  - Move: `change.pressed && change.position != change.previousPosition` → re-hitTest; swap note if changed
+- Include `@Preview` with a static keyboard
 
-### Delivery Steps
+### 2. Modify: `app/src/main/java/org/egon12/btmid/ui/MainScreen.kt`
 
-- [x] **P1-1** — Add GATT handle + priority request in `BleMidiConnection`
-- [x] **P1-2** — Confirm connect / disconnect lifecycle has no regression
+Add `PianoKeyboard` inside the `permissionsGranted` branch, after `DrumEngineSelector` and before the discovered devices section:
 
----
+```kotlin
+DrumEngineSelector(...)
 
-## Phase 2 — Native Engine (C++/NDK)
+PianoKeyboard(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(120.dp)
+)
 
-Oboe with `EXCLUSIVE` sharing mode + `LOW_LATENCY` performance mode uses a hardware callback that bypasses Android's software mixer. AMidi eliminates Java callbacks on the MIDI receive path. Together these target **5–8 ms output latency** on modern hardware.
+if (uiState.discoveredDevices.isNotEmpty()) { ... }
+```
 
-Each step below leaves the Kotlin synths active and the app fully working. The strategy: port all renderers with host WAV tests first, then do one Kotlin switch (P2-7) that immediately gives full C++ sounds — no intermediate "everything is 440 Hz sine" phase.
+No new parameters or callbacks needed in `MainScreen` or `MainActivity`.
 
-Host test harness lives in `cpp_host_tests/` (standalone CMake, macOS-native, no Oboe dep). Each renderer step adds test cases + WAV output to `renderer_test.cpp`.
+## Verification
 
----
-
-### ~~P2-1 — Build infrastructure (no behavior change)~~ ✅ Done
-
-Add NDK + CMake to the project. No C++ code that does anything yet.
-
-- Add `ndkVersion`, `cmake {}` block to `build.gradle.kts`
-- Add Oboe prefab AAR dependency
-- Create `app/src/main/cpp/CMakeLists.txt` — links Oboe, produces `libbtmid.so`
-- Create `app/src/main/cpp/NativeEngine.cpp` — empty class, exports one JNI stub `NativeEngine_create` that returns 0
-- `./gradlew assembleDebug` passes; `.so` appears in APK
-
-**Test:** build succeeds. App behavior unchanged.
-
----
-
-### ~~P2-2 — C++ infra + SineTestRenderer + host test harness~~ ✅ Done
-
-- `AudioRenderer.h` — abstract interface
-- `SineTestRenderer.cpp/.h` — 440 Hz sine for 500 ms on any `noteOn`
-- `NativeEngine.cpp/.h` — opens Oboe stream (`EXCLUSIVE` + `LOW_LATENCY`), renders via `AudioRenderer` list in `onAudioReady()`
-- `jni_bridge.cpp` — JNI entry points: `create`, `start`, `stop`, `destroy`, `noteOn`, `noteOff`
-- `NativeAudioEngine.kt` — thin Kotlin singleton holding native pointer
-- `cpp_host_tests/` — CMake host build; `renderer_test.cpp` asserts silence/sound/decay and writes WAV files
-
-Kotlin synths (`AudioEngine.kt`, `MidiRouter.kt`) **unchanged** — Kotlin wiring deferred to P2-7.
-
-**Test:** 4 host assertions pass; `sine_test.wav` sounds correct.
-
----
-
-### ~~P2-3 — NoiseDrumRenderer~~ ✅ Done
-
-Port `NoiseDrumSynth.kt` to C++. Validate sound with a host WAV test.
-
-- `renderers/NoiseDrumRenderer.cpp/.h` — direct port of the noise-burst logic per GM note
-- Add `NoiseDrumRenderer` test to `cpp_host_tests/renderer_test.cpp`: trigger each drum type (kick, snare, hat, crash, ride), write `noise_drums.wav`
-
-**Test:** host assertions pass; `noise_drums.wav` sounds correct for all drum types.
-
----
-
-### ~~P2-4 — FmDrumRenderer~~ ✅ Done
-
-Port `FmDrumSynth.kt` to C++.
-
-- `renderers/FmDrumRenderer.cpp/.h` — port of FM operator logic per GM note
-- Add `FmDrumRenderer` test to `cpp_host_tests/renderer_test.cpp`: same drum sequence, write `fm_drums.wav`
-
-**Test:** host assertions pass; `fm_drums.wav` sounds correct. Compare with `noise_drums.wav` to hear the difference.
-
----
-
-### ~~P2-5 — PianoRenderer~~ ✅ Done
-
-Port `PianoSynth.kt` to C++.
-
-- `renderers/PianoRenderer.cpp/.h` — additive sine (5 harmonics) + ADSR envelope, 8-voice cap
-- Add `PianoRenderer` test to `cpp_host_tests/renderer_test.cpp`: play a C major chord, write `piano_chord.wav`
-
-**Test:** host assertions pass; `piano_chord.wav` sounds like the current Kotlin piano.
-
----
-
-### ~~P2-6 — SampleDrumRenderer~~ ✅ Done
-
-OGG decoding stays in Kotlin (`MediaCodec`) — no NDK equivalent. Decoded `FloatArray`s are passed to C++ once at startup.
-
-- `renderers/SampleDrumRenderer.cpp/.h` — holds `float*` per drum name; `render()` mixes the relevant buffer
-- Add `NativeEngine_loadSample(name: String, floatArray: FloatArray)` JNI method
-- `SampleBank.kt` decodes OGGs as before, then calls `loadSample` for each file
-
-No host WAV test (samples come from Android assets); validated on device in P2-7.
-
----
-
-### ~~P2-7 — Kotlin wiring (all C++ sounds go live)~~ ✅ Done
-
-Switch `AudioEngine.kt` and `MidiRouter.kt` to `NativeAudioEngine`. All real sounds come from C++ immediately — no 440 Hz sine phase.
-
-- Replace `AudioEngine.kt`: drop `AudioTrack`; call `NativeAudioEngine.start()/stop()`
-- Replace `MidiRouter.kt`: call `NativeAudioEngine.noteOn/noteOff` instead of Kotlin synths
-- Update `MainViewModel`: remove synth args from `AudioEngine` + `MidiRouter` constructors; wire `setDrumBackend` to `NativeAudioEngine.setDrumBackend(int)`
-- Add `NativeEngine_setDrumBackend(int)` JNI method; `NativeEngine` swaps drum backend atomically
-- `NativeEngine` routes: channel 0 → `PianoRenderer`, channel 9 → active drum renderer
-- Remove `SineTestRenderer`
-
-**Test:** piano + all three drum backends work on device. `DrumEngineSelector` UI switches backends at runtime.
-
----
-
-### P2-8 — AMidi input (no Java on the hot path)
-
-Replace the Kotlin `MidiRouter` → JNI `noteOn/noteOff` call chain with native AMidi polling directly inside `onAudioReady()`.
-
-- In `BleMidiConnection.kt`: after `openBluetoothDevice`, pass the `MidiOutputPort` Java object to C++ via `NativeEngine_setOutputPort(jOutputPort)`
-- `NativeEngine.cpp`: call `AMidiOutputPort_fromJava(env, jOutputPort)`; poll `AMidiOutputPort_receive()` at the top of every `onAudioReady()`; parse bytes with `MidiParser.cpp`; dispatch to renderers
-- Add a lock-free event queue in `NativeEngine`; a dedicated non-realtime thread drains it and calls a registered Kotlin `MidiEventListener` for the UI event log and MIDI activity indicator
-
-**Test:** MIDI activity indicator and event log still update. Audio path no longer involves any Kotlin on each note event.
-
----
-
-### P2-9 — Cleanup + latency measurement
-
-Remove files that are now dead code; confirm latency improvement.
-
-- Delete `AppMidiReceiver.kt`, `MidiParser.kt`, `MidiRouter.kt`, `PianoSynth.kt`, `NoiseDrumSynth.kt`, `FmDrumSynth.kt`, `SampleDrumSynth.kt`, `SampleBank.kt`, `DrumSynth.kt` (interface), `AudioEngine.kt`
-- Measure round-trip latency using a loopback cable + `AudioLatencyTester` or logcat timestamps on `noteOn` vs first audio sample
-- Confirm audio output latency <10 ms on test device
-
----
-
-## Recommended Order
-
-Phase 1 first (standalone win, no NDK) → Phase 2 (main win, each step leaves app runnable)
+1. Build: `./gradlew assembleDebug` — confirm no compile errors
+2. Deploy to device/emulator
+3. Open app, grant permissions
+4. Without connecting any BLE device: tap individual white and black keys → audio should play
+5. Touch two keys simultaneously → both notes play (polyphonic)
+6. Slide finger from one key to another → seamless legato (old note off, new note on)
+7. Hold 3+ fingers → all notes sustain until each finger lifts
+8. Confirm no audio glitches or ANR from the UI thread
