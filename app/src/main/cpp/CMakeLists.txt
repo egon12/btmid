@@ -10,6 +10,7 @@ add_library(btmid SHARED
         renderers/NoiseDrumRenderer.cpp
         renderers/FmDrumRenderer.cpp
         renderers/PianoRenderer.cpp
+        renderers/PianoSinTableRenderer.cpp
         renderers/SampleDrumRenderer.cpp
         jni_bridge.cpp
 )

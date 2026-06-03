@@ -6,6 +6,7 @@
 #include "renderers/NoiseDrumRenderer.h"
 #include "renderers/FmDrumRenderer.h"
 #include "renderers/PianoRenderer.h"
+#include "renderers/PianoSinTableRenderer.h"
 #include "wav_writer.h"
 
 static int gPass = 0, gFail = 0;
@@ -435,6 +436,36 @@ static void write_wav_fm_drums() {
     printf("INFO  wrote fm_drums.wav     (kick snare hat openhat crash ride tom)\n");
 }
 
+static void write_wav_piano_sin_table() {
+
+    PianoSinTableRenderer r;
+    const int sampleRate   = 44100;
+    const int totalSamples = sampleRate * 2; // 2 seconds
+    std::vector<float> out(totalSamples, 0.0f);
+
+
+    r.initSinTable();
+    // C major chord: C4=60, E4=64, G4=67
+    r.noteOn(0, 60, 100);
+    r.noteOn(0, 64, 100);
+    r.noteOn(0, 67, 100);
+    r.noteOn(0, 68, 100);
+
+    const int releaseAt = sampleRate; // noteOff at 1 s
+
+    for (int i = 0; i < totalSamples; i += 256) {
+        if (i >= releaseAt && i < releaseAt + 256) {
+            r.noteOff(0, 60);
+            r.noteOff(0, 64);
+            r.noteOff(0, 67);
+        }
+        int n = std::min(256, totalSamples - i);
+        r.render(out.data() + i, n);
+    }
+    writeWav("piano_chord_2.wav", out.data(), totalSamples, sampleRate);
+    printf("INFO  wrote piano_chord_2.wav  (C major chord, release at 1 s)\n");
+}
+
 int main() {
     printf("=== SineTestRenderer ===\n");
     test_silence_before_noteOn();
@@ -477,6 +508,7 @@ int main() {
     write_wav_noise_drums();
     write_wav_fm_drums();
     write_wav_piano_chord();
+    write_wav_piano_sin_table();
 
     printf("\n%d passed, %d failed\n", gPass, gFail);
     return gFail > 0 ? 1 : 0;
