@@ -15,7 +15,6 @@ import org.egon12.btmid.midi.MidiEvent
 import org.egon12.btmid.midi.MidiRouter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.egon12.btmid.synth.AudioEngine
 import org.egon12.btmid.synth.NativeAudioEngine
 import org.egon12.btmid.synth.SampleBank
 
@@ -46,13 +45,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sampleBank = SampleBank(application)
     private val midiRouter = MidiRouter()
-    private val audioEngine = AudioEngine()
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
     private val drumBackendStore = DrumBackendStore(application)
 
     init {
-        audioEngine.start()
+        NativeAudioEngine.start()
         viewModelScope.launch {
             withContext(Dispatchers.IO) { sampleBank.load() }
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
@@ -137,6 +135,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         bleScanner.stopScan()
         bleMidiConnection.disconnect()
-        audioEngine.stop()
+        NativeAudioEngine.stop()
     }
 }
