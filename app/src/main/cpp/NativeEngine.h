@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include "AudioRenderer.h"
+#include "renderers/SampleDrumRenderer.h"
 
 class NativeEngine : public oboe::AudioStreamDataCallback {
 public:
@@ -16,6 +17,7 @@ public:
     void stop();
     void noteOn(int channel, int note, int velocity);
     void noteOff(int channel, int note);
+    void loadSample(int sampleId, const float* data, int length);
 
     oboe::DataCallbackResult onAudioReady(
             oboe::AudioStream* stream,
@@ -25,4 +27,5 @@ public:
 private:
     std::shared_ptr<oboe::AudioStream> mStream;
     std::vector<std::unique_ptr<AudioRenderer>> mRenderers;
+    SampleDrumRenderer* mSampleDrumRenderer{nullptr}; // owned by mRenderers
 };

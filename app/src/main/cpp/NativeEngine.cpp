@@ -1,5 +1,6 @@
 #include "NativeEngine.h"
 #include "SineTestRenderer.h"
+#include "renderers/SampleDrumRenderer.h"
 #include <android/log.h>
 
 #define LOG_TAG "NativeEngine"
@@ -8,6 +9,10 @@
 
 NativeEngine::NativeEngine() {
     mRenderers.push_back(std::make_unique<SineTestRenderer>());
+
+    auto sdr = std::make_unique<SampleDrumRenderer>();
+    mSampleDrumRenderer = sdr.get();
+    mRenderers.push_back(std::move(sdr));
 }
 
 NativeEngine::~NativeEngine() {
@@ -52,6 +57,10 @@ void NativeEngine::noteOn(int channel, int note, int velocity) {
 
 void NativeEngine::noteOff(int channel, int note) {
     for (auto& r : mRenderers) r->noteOff(channel, note);
+}
+
+void NativeEngine::loadSample(int sampleId, const float* data, int length) {
+    if (mSampleDrumRenderer) mSampleDrumRenderer->loadSample(sampleId, data, length);
 }
 
 oboe::DataCallbackResult NativeEngine::onAudioReady(

@@ -193,7 +193,7 @@ Port `PianoSynth.kt` to C++.
 
 ---
 
-### P2-6 — SampleDrumRenderer
+### ~~P2-6 — SampleDrumRenderer~~ ✅ Done
 
 OGG decoding stays in Kotlin (`MediaCodec`) — no NDK equivalent. Decoded `FloatArray`s are passed to C++ once at startup.
 

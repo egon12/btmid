@@ -19,7 +19,9 @@ class SampleBank(private val context: Context) {
 
     fun load() {
         for (name in DRUM_ASSETS) {
-            samples[name] = decodeAsset("samples/drums/$name.ogg")
+            val pcm = decodeAsset("samples/drums/$name.ogg")
+            samples[name] = pcm
+            NativeAudioEngine.loadSample(name, pcm)
         }
     }
 

@@ -1,5 +1,6 @@
 #include <jni.h>
 #include "NativeEngine.h"
+#include "renderers/SampleDrumRenderer.h"
 
 #define ENGINE(ptr) reinterpret_cast<NativeEngine*>(ptr)
 
@@ -35,6 +36,20 @@ JNIEXPORT void JNICALL
 Java_org_egon12_btmid_synth_NativeAudioEngine_noteOff(
         JNIEnv*, jobject, jlong ptr, jint channel, jint note) {
     ENGINE(ptr)->noteOff(channel, note);
+}
+
+JNIEXPORT void JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_loadSample(
+        JNIEnv* env, jobject, jlong ptr, jstring jname, jfloatArray jdata) {
+    const char* name = env->GetStringUTFChars(jname, nullptr);
+    int id = SampleDrumRenderer::nameToSampleId(name);
+    env->ReleaseStringUTFChars(jname, name);
+    if (id < 0) return;
+
+    int     length = env->GetArrayLength(jdata);
+    jfloat* data   = env->GetFloatArrayElements(jdata, nullptr);
+    ENGINE(ptr)->loadSample(id, data, length);
+    env->ReleaseFloatArrayElements(jdata, data, JNI_ABORT);
 }
 
 } // extern "C"
