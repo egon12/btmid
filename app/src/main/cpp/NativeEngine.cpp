@@ -7,22 +7,22 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 NativeEngine::NativeEngine() {
-    auto piano = std::make_unique<PianoRenderer>();
+    auto piano = std::make_unique<Piano>();
     mPiano = piano.get();
-    mRenderers.push_back(std::move(piano));
+    mInstruments.push_back(std::move(piano));
 
-    auto noise = std::make_unique<NoiseDrumRenderer>();
-    mDrumRenderers[0] = noise.get();
-    mRenderers.push_back(std::move(noise));
+    auto noise = std::make_unique<NoiseDrum>();
+    mDrumInstruments[0] = noise.get();
+    mInstruments.push_back(std::move(noise));
 
-    auto fm = std::make_unique<FmDrumRenderer>();
-    mDrumRenderers[1] = fm.get();
-    mRenderers.push_back(std::move(fm));
+    auto fm = std::make_unique<FmDrum>();
+    mDrumInstruments[1] = fm.get();
+    mInstruments.push_back(std::move(fm));
 
-    auto sdr = std::make_unique<SampleDrumRenderer>();
-    mSampleDrumRenderer = sdr.get();
-    mDrumRenderers[2]   = sdr.get();
-    mRenderers.push_back(std::move(sdr));
+    auto sdr = std::make_unique<SampleDrum>();
+    mSampleDrum         = sdr.get();
+    mDrumInstruments[2] = sdr.get();
+    mInstruments.push_back(std::move(sdr));
 }
 
 NativeEngine::~NativeEngine() {
@@ -67,7 +67,7 @@ void NativeEngine::noteOn(int channel, int note, int velocity) {
         mPiano->noteOn(channel, note, velocity);
     } else if (channel == 9) {
         int idx = mActiveDrum.load(std::memory_order_relaxed);
-        if (mDrumRenderers[idx]) mDrumRenderers[idx]->noteOn(channel, note, velocity);
+        if (mDrumInstruments[idx]) mDrumInstruments[idx]->noteOn(channel, note, velocity);
     }
 }
 
@@ -76,12 +76,12 @@ void NativeEngine::noteOff(int channel, int note) {
         mPiano->noteOff(channel, note);
     } else if (channel == 9) {
         int idx = mActiveDrum.load(std::memory_order_relaxed);
-        if (mDrumRenderers[idx]) mDrumRenderers[idx]->noteOff(channel, note);
+        if (mDrumInstruments[idx]) mDrumInstruments[idx]->noteOff(channel, note);
     }
 }
 
 void NativeEngine::loadSample(int sampleId, const float* data, int length) {
-    if (mSampleDrumRenderer) mSampleDrumRenderer->loadSample(sampleId, data, length);
+    if (mSampleDrum) mSampleDrum->loadSample(sampleId, data, length);
 }
 
 void NativeEngine::setDrumBackend(int backendId) {
@@ -196,6 +196,6 @@ oboe::DataCallbackResult NativeEngine::onAudioReady(
 
     auto* buf = static_cast<float*>(audioData);
     for (int i = 0; i < numFrames; ++i) buf[i] = 0.0f;
-    for (auto& r : mRenderers) r->render(buf, numFrames);
+    for (auto& r : mInstruments) r->render(buf, numFrames);
     return oboe::DataCallbackResult::Continue;
 }

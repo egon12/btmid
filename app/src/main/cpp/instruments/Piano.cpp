@@ -1,9 +1,9 @@
-#include "PianoRenderer.h"
+#include "Piano.h"
 
-const float PianoRenderer::kReleaseCoeff =
+const float Piano::kReleaseCoeff =
     (float)std::exp(-1.0 / (0.300 * kSampleRate));
 
-void PianoRenderer::noteOn(int, int note, int velocity) {
+void Piano::noteOn(int, int note, int velocity) {
     int head     = mOnHead.load(std::memory_order_relaxed);
     int nextHead = (head + 1) & (kQueueCap - 1);
     if (nextHead != mOnTail.load(std::memory_order_acquire)) {
@@ -12,7 +12,7 @@ void PianoRenderer::noteOn(int, int note, int velocity) {
     }
 }
 
-void PianoRenderer::noteOff(int, int note) {
+void Piano::noteOff(int, int note) {
     int head     = mOffHead.load(std::memory_order_relaxed);
     int nextHead = (head + 1) & (kQueueCap - 1);
     if (nextHead != mOffTail.load(std::memory_order_acquire)) {
@@ -21,7 +21,7 @@ void PianoRenderer::noteOff(int, int note) {
     }
 }
 
-void PianoRenderer::addVoice(int note, int velocity) {
+void Piano::addVoice(int note, int velocity) {
     float  peak = velocity / 127.0f * 0.7f;
     double freq = 440.0 * std::pow(2.0, (note - 69) / 12.0);
 
@@ -55,14 +55,14 @@ void PianoRenderer::addVoice(int note, int velocity) {
     }
 }
 
-void PianoRenderer::releaseVoice(int note) {
+void Piano::releaseVoice(int note) {
     for (auto& v : mVoices) {
         if (v.active && v.note == note && v.phase != Phase::Release)
             v.phase = Phase::Release;
     }
 }
 
-void PianoRenderer::renderVoice(Voice& v, float* buffer, int32_t frames) {
+void Piano::renderVoice(Voice& v, float* buffer, int32_t frames) {
     for (int i = 0; i < frames; ++i) {
         switch (v.phase) {
             case Phase::Attack:
@@ -102,7 +102,7 @@ void PianoRenderer::renderVoice(Voice& v, float* buffer, int32_t frames) {
     }
 }
 
-void PianoRenderer::render(float* buffer, int32_t frames) {
+void Piano::render(float* buffer, int32_t frames) {
     {
         int tail = mOnTail.load(std::memory_order_relaxed);
         int head = mOnHead.load(std::memory_order_acquire);

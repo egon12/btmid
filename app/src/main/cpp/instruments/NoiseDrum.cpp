@@ -1,17 +1,17 @@
-#include "NoiseDrumRenderer.h"
+#include "NoiseDrum.h"
 
 static float makeDecayCoeff(double decayMs) {
-    return (float)std::exp(-1.0 / (decayMs / 1000.0 * NoiseDrumRenderer::kSampleRate));
+    return (float)std::exp(-1.0 / (decayMs / 1000.0 * NoiseDrum::kSampleRate));
 }
 
-float NoiseDrumRenderer::nextRandom() {
+float NoiseDrum::nextRandom() {
     mRng ^= mRng << 13;
     mRng ^= mRng >> 17;
     mRng ^= mRng << 5;
     return (float)(int32_t)mRng / (float)0x80000000u;
 }
 
-void NoiseDrumRenderer::noteOn(int, int note, int velocity) {
+void NoiseDrum::noteOn(int, int note, int velocity) {
     int head     = mQueueHead.load(std::memory_order_relaxed);
     int nextHead = (head + 1) & (kQueueCap - 1);
     if (nextHead != mQueueTail.load(std::memory_order_acquire)) {
@@ -20,9 +20,9 @@ void NoiseDrumRenderer::noteOn(int, int note, int velocity) {
     }
 }
 
-void NoiseDrumRenderer::noteOff(int, int) {}
+void NoiseDrum::noteOff(int, int) {}
 
-NoiseDrumRenderer::Voice NoiseDrumRenderer::makeVoice(int note, float gain) {
+NoiseDrum::Voice NoiseDrum::makeVoice(int note, float gain) {
     Voice v;
     v.active = true;
     v.gain   = gain;
@@ -62,7 +62,7 @@ NoiseDrumRenderer::Voice NoiseDrumRenderer::makeVoice(int note, float gain) {
     return v;
 }
 
-float NoiseDrumRenderer::renderVoiceSample(Voice& v) {
+float NoiseDrum::renderVoiceSample(Voice& v) {
     float s;
     switch (v.type) {
         case VoiceType::BassDrum: {
@@ -104,7 +104,7 @@ float NoiseDrumRenderer::renderVoiceSample(Voice& v) {
     return s;
 }
 
-void NoiseDrumRenderer::render(float* buffer, int32_t frames) {
+void NoiseDrum::render(float* buffer, int32_t frames) {
     int tail = mQueueTail.load(std::memory_order_relaxed);
     int head = mQueueHead.load(std::memory_order_acquire);
     while (tail != head) {

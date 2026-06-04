@@ -1,13 +1,13 @@
 #pragma once
-#include "../AudioRenderer.h"
+#include "../Instrument.h"
 #include <array>
 #include <atomic>
 #include <vector>
 #include <cstdint>
 
-class SampleDrumRenderer : public AudioRenderer {
+class SampleDrum : public Instrument {
 public:
-    SampleDrumRenderer();
+    SampleDrum();
 
     void noteOn(int channel, int note, int velocity) override;
     void noteOff(int channel, int note) override;

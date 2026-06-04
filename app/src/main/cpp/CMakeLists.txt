@@ -6,12 +6,11 @@ find_package(oboe REQUIRED CONFIG)
 add_library(btmid SHARED
         MidiParser.cpp
         NativeEngine.cpp
-        SineTestRenderer.cpp
-        renderers/NoiseDrumRenderer.cpp
-        renderers/FmDrumRenderer.cpp
-        renderers/PianoRenderer.cpp
-        renderers/PianoSinTableRenderer.cpp
-        renderers/SampleDrumRenderer.cpp
+        instruments/Piano.cpp
+        instruments/NoiseDrum.cpp
+        instruments/FmDrum.cpp
+        instruments/SampleDrum.cpp
+        instruments/PianoSinTable.cpp
         jni_bridge.cpp
 )
 

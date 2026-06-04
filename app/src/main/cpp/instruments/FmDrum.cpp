@@ -1,27 +1,27 @@
-#include "FmDrumRenderer.h"
+#include "FmDrum.h"
 
 static float  envCoeff(double decayMs) {
-    return (float)std::exp(-1.0 / (decayMs / 1000.0 * FmDrumRenderer::kSampleRate));
+    return (float)std::exp(-1.0 / (decayMs / 1000.0 * FmDrum::kSampleRate));
 }
 static double sweepCoeff(double tauMs) {
-    return std::exp(-1.0 / (tauMs / 1000.0 * FmDrumRenderer::kSampleRate));
+    return std::exp(-1.0 / (tauMs / 1000.0 * FmDrum::kSampleRate));
 }
 
-float FmDrumRenderer::nextRandom() {
+float FmDrum::nextRandom() {
     mRng ^= mRng << 13;
     mRng ^= mRng >> 17;
     mRng ^= mRng << 5;
     return (float)(int32_t)mRng / (float)0x80000000u;
 }
 
-double FmDrumRenderer::nextRandomPhase() {
+double FmDrum::nextRandomPhase() {
     mRng ^= mRng << 13;
     mRng ^= mRng >> 17;
     mRng ^= mRng << 5;
     return (double)mRng * (kTwoPi / (double)0x100000000LL);
 }
 
-void FmDrumRenderer::noteOn(int, int note, int velocity) {
+void FmDrum::noteOn(int, int note, int velocity) {
     int head     = mQueueHead.load(std::memory_order_relaxed);
     int nextHead = (head + 1) & (kQueueCap - 1);
     if (nextHead != mQueueTail.load(std::memory_order_acquire)) {
@@ -30,9 +30,9 @@ void FmDrumRenderer::noteOn(int, int note, int velocity) {
     }
 }
 
-void FmDrumRenderer::noteOff(int, int) {}
+void FmDrum::noteOff(int, int) {}
 
-FmDrumRenderer::Voice FmDrumRenderer::makeVoice(int note, float gain) {
+FmDrum::Voice FmDrum::makeVoice(int note, float gain) {
     Voice v;
     v.gain = gain;
     switch (note) {
@@ -119,7 +119,7 @@ FmDrumRenderer::Voice FmDrumRenderer::makeVoice(int note, float gain) {
     return v;
 }
 
-float FmDrumRenderer::renderVoiceSample(Voice& v) {
+float FmDrum::renderVoiceSample(Voice& v) {
     float s;
     switch (v.type) {
         case VoiceType::Kick:
@@ -171,7 +171,7 @@ float FmDrumRenderer::renderVoiceSample(Voice& v) {
     return s;
 }
 
-void FmDrumRenderer::render(float* buffer, int32_t frames) {
+void FmDrum::render(float* buffer, int32_t frames) {
     int tail = mQueueTail.load(std::memory_order_relaxed);
     int head = mQueueHead.load(std::memory_order_acquire);
     while (tail != head) {

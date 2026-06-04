@@ -1,12 +1,12 @@
-#include "SampleDrumRenderer.h"
+#include "SampleDrum.h"
 #include <algorithm>
 #include <cstring>
 
-SampleDrumRenderer::SampleDrumRenderer() {
+SampleDrum::SampleDrum() {
     for (auto& l : mSampleLen) l.store(0, std::memory_order_relaxed);
 }
 
-int SampleDrumRenderer::noteToSampleId(int note) {
+int SampleDrum::noteToSampleId(int note) {
     switch (note) {
         case 35: case 36:                          return Kick;
         case 38: case 40:                          return Snare;
@@ -20,7 +20,7 @@ int SampleDrumRenderer::noteToSampleId(int note) {
     }
 }
 
-int SampleDrumRenderer::nameToSampleId(const char* name) {
+int SampleDrum::nameToSampleId(const char* name) {
     if (std::strcmp(name, "kick")       == 0) return Kick;
     if (std::strcmp(name, "snare")      == 0) return Snare;
     if (std::strcmp(name, "closed_hat") == 0) return ClosedHat;
@@ -31,14 +31,14 @@ int SampleDrumRenderer::nameToSampleId(const char* name) {
     return -1;
 }
 
-void SampleDrumRenderer::loadSample(int id, const float* data, int length) {
+void SampleDrum::loadSample(int id, const float* data, int length) {
     if (id < 0 || id >= kNumSamples || length <= 0) return;
     mStorage[id].assign(data, data + length);
     // Release-store: audio thread acquire-loads this to gate access to mStorage[id]
     mSampleLen[id].store(length, std::memory_order_release);
 }
 
-void SampleDrumRenderer::noteOn(int, int note, int velocity) {
+void SampleDrum::noteOn(int, int note, int velocity) {
     int head     = mQueueHead.load(std::memory_order_relaxed);
     int nextHead = (head + 1) & (kQueueCap - 1);
     if (nextHead != mQueueTail.load(std::memory_order_acquire)) {
@@ -47,9 +47,9 @@ void SampleDrumRenderer::noteOn(int, int note, int velocity) {
     }
 }
 
-void SampleDrumRenderer::noteOff(int, int) {}
+void SampleDrum::noteOff(int, int) {}
 
-void SampleDrumRenderer::render(float* buffer, int32_t frames) {
+void SampleDrum::render(float* buffer, int32_t frames) {
     int tail = mQueueTail.load(std::memory_order_relaxed);
     int head = mQueueHead.load(std::memory_order_acquire);
     while (tail != head) {

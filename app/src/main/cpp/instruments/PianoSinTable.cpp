@@ -1,9 +1,9 @@
-#include "PianoSinTableRenderer.h"
+#include "PianoSinTable.h"
 
-const float PianoSinTableRenderer::kReleaseCoeff =
+const float PianoSinTable::kReleaseCoeff =
         (float) std::exp(-1.0 / (0.300 * kSampleRate));
 
-void PianoSinTableRenderer::noteOn(int channel, int note, int velocity) {
+void PianoSinTable::noteOn(int channel, int note, int velocity) {
     int head = mOnHead.load(std::memory_order_relaxed);
     int tail = mOnTail.load(std::memory_order_acquire);
 
@@ -14,7 +14,7 @@ void PianoSinTableRenderer::noteOn(int channel, int note, int velocity) {
     mOnHead.store(nextHead, std::memory_order_release);
 }
 
-void PianoSinTableRenderer::noteOff(int channel, int note) {
+void PianoSinTable::noteOff(int channel, int note) {
     int head = mOffHead.load(std::memory_order_relaxed);
     int tail = mOffTail.load(std::memory_order_acquire);
 
@@ -25,7 +25,7 @@ void PianoSinTableRenderer::noteOff(int channel, int note) {
     mOffHead.store(nextHead, std::memory_order_release);
 }
 
-void PianoSinTableRenderer::render(float *buffer, int32_t frames) {
+void PianoSinTable::render(float *buffer, int32_t frames) {
 
     {
         int tail = mOnTail.load(std::memory_order_relaxed);
@@ -51,11 +51,11 @@ void PianoSinTableRenderer::render(float *buffer, int32_t frames) {
     }
 }
 
-inline int PianoSinTableRenderer::next(int index) {
+inline int PianoSinTable::next(int index) {
     return (index + 1) & (kQueueCap - 1);
 }
 
-void PianoSinTableRenderer::addVoice(int note, int velocity) {
+void PianoSinTable::addVoice(int note, int velocity) {
     float peak = velocity / 127.0f * 0.7f;
     double freq = 440.0 * std::pow(2.0, (note - 69) / 12.0);
 
@@ -105,14 +105,14 @@ void PianoSinTableRenderer::addVoice(int note, int velocity) {
 
 }
 
-void PianoSinTableRenderer::releaseVoice(int note) {
+void PianoSinTable::releaseVoice(int note) {
     for (auto &v: mVoices) {
         if (v.active && v.note == note && v.phase != Phase::Release)
             v.phase = Phase::Release;
     }
 }
 
-void PianoSinTableRenderer::renderVoice(Voice &v, float *buffer, int32_t frames) {
+void PianoSinTable::renderVoice(Voice &v, float *buffer, int32_t frames) {
     for (int i = 0; i < frames; ++i) {
         switch (v.phase) {
             case Phase::Attack:
@@ -158,7 +158,7 @@ void PianoSinTableRenderer::renderVoice(Voice &v, float *buffer, int32_t frames)
     }
 }
 
-void PianoSinTableRenderer::initSinTable() {
+void PianoSinTable::initSinTable() {
     for (int i = 0; i < kTableSize; ++i) {
         sinTable[i] = std::sin(2.0f * M_PI * i / kTableSize);
     }

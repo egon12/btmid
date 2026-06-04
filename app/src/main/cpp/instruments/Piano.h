@@ -1,11 +1,11 @@
 #pragma once
-#include "../AudioRenderer.h"
+#include "../Instrument.h"
 #include <array>
 #include <atomic>
 #include <cstdint>
 #include <cmath>
 
-class PianoRenderer : public AudioRenderer {
+class Piano : public Instrument {
 public:
     void noteOn(int channel, int note, int velocity) override;
     void noteOff(int channel, int note) override;

@@ -88,17 +88,17 @@ app/src/main/java/org/egon12/btmid/
   MainViewModel.kt           — UiState + scan/connect/disconnect/setDrumBackend actions
 
 app/src/main/cpp/
-  NativeEngine.h/.cpp        — NativeEngine class; owns Oboe stream, renderers, AMidi poll loop, SpscRing
-  AudioRenderer.h            — pure-virtual interface: noteOn/Off/render(float*, int32_t)
+  NativeEngine.h/.cpp        — NativeEngine class; owns Oboe stream, instruments, AMidi poll loop, SpscRing
+  Instrument.h               — pure-virtual interface: noteOn/Off/render(float*, int32_t)
   MidiParser.h/.cpp          — parseMidi(): raw MIDI 1.0 bytes (with running-status) → MidiMsg structs
   SpscRing.h                 — lock-free single-producer single-consumer ring buffer (audio→dispatch)
-  SineTestRenderer.h/.cpp    — simple test tone (not wired to production flow)
   jni_bridge.cpp             — JNI_OnLoad + all Java_… extern "C" functions bridging NativeAudioEngine.kt
-  renderers/
-    PianoRenderer.h/.cpp     — additive sine synthesis, ADSR, 8-voice polyphony
-    NoiseDrumRenderer.h/.cpp — noise-burst synthesis per GM drum note
-    FmDrumRenderer.h/.cpp    — FM operator synthesis per GM drum note
-    SampleDrumRenderer.h/.cpp— plays back FloatArray samples loaded from SampleBank
+  instruments/
+    Piano.h/.cpp             — additive sine synthesis, ADSR, 8-voice polyphony
+    NoiseDrum.h/.cpp         — noise-burst synthesis per GM drum note
+    FmDrum.h/.cpp            — FM operator synthesis per GM drum note
+    SampleDrum.h/.cpp        — plays back FloatArray samples loaded from SampleBank
+    PianoSinTable.h/.cpp     — sin-table variant of Piano (lookup-table oscillator)
 ```
 
 Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`, `closed_hat.ogg`, `open_hat.ogg`, `crash.ogg`, `ride.ogg`, `tom.ogg` (all toms share one file). Declared `noCompress` in `build.gradle.kts` so MediaExtractor can seek.
@@ -113,9 +113,9 @@ BLE MIDI device
   → NativeEngine::onAudioReady() (Oboe audio thread)
       polls AMidiOutputPort_receive()
       → parseMidi() → MidiMsg
-      → routes to PianoRenderer (ch 0) or active DrumRenderer (ch 9)
+      → routes to Piano (ch 0) or active drum Instrument (ch 9)
       → pushes MidiEvt to SpscRing (lock-free, non-blocking)
-      → sums all AudioRenderer::render() buffers → Oboe float output
+      → sums all Instrument::render() buffers → Oboe float output
   → NativeEngine::dispatchLoop() (dedicated thread)
       drains SpscRing → JNI callback → MidiRouter.onMidiEvent()
       → SharedFlow → MainViewModel → UI event log + activity pulse
@@ -141,10 +141,10 @@ On-screen input (no BLE device needed)
 
 - **Audio**: Oboe stream, `USAGE_GAME` + `PERFORMANCE_MODE_LOW_LATENCY`, mono float 44100 Hz
 - **MIDI poll**: `AMidiOutputPort_receive()` called at the top of each `onAudioReady()` callback
-- **Routing**: channel 0 → `PianoRenderer`; channel 9 → `mDrumRenderers[mActiveDrum]`
+- **Routing**: channel 0 → `Piano`; channel 9 → `mDrumInstruments[mActiveDrum]`
 - **Lock-free bridge**: audio thread pushes `MidiEvt` into `SpscRing<MidiEvt, 256>`; `dispatchLoop()` thread pops and fires JNI callback for UI
 
-### Piano (PianoRenderer)
+### Piano (`Piano`)
 
 - Frequency: `440.0 * pow(2.0, (note - 69) / 12.0)`
 - 5 harmonics with amplitudes: 1.00, 0.50, 0.25, 0.12, 0.06
@@ -155,7 +155,7 @@ On-screen input (no BLE device needed)
 
 Three C++ backends selectable at runtime. `mActiveDrum` is `std::atomic<int>` — safe to swap between UI and audio threads.
 
-#### NoiseDrumRenderer
+#### NoiseDrum
 
 | GM Note | Sound | Method |
 |---------|-------|--------|
@@ -166,7 +166,7 @@ Three C++ backends selectable at runtime. `mActiveDrum` is `std::atomic<int>` �
 | 49/57 | Crash | white noise, 800ms |
 | 51 | Ride | white noise + 600 Hz, 400ms |
 
-#### FmDrumRenderer
+#### FmDrum
 
 | GM Note | Sound | Method |
 |---------|-------|--------|
@@ -180,7 +180,7 @@ Three C++ backends selectable at runtime. `mActiveDrum` is `std::atomic<int>` �
 
 FM formula: `out = amp × env(t) × sin(2π·fC·t + depth × mod)` where `mod = sin(2π·fM·t + index × sin(2π·fM·t))`.
 
-#### SampleDrumRenderer
+#### SampleDrum
 
 Plays back pre-decoded OGG assets loaded by `SampleBank`. `SampleBank.load()` runs on `Dispatchers.IO` at startup; decoded `FloatArray`s are passed to `NativeAudioEngine.loadSample()` → JNI → `NativeEngine::loadSample()`. The "Samples" chip in the UI is disabled with a loading spinner until loading completes.
 
@@ -231,7 +231,7 @@ data class UiState(
 - BLE scan callbacks → main thread (`Handler(mainLooper)`)
 - Oboe audio thread → `NativeEngine::onAudioReady()` → AMidi poll → parse → render; pushes `MidiEvt` to `SpscRing` (non-blocking)
 - `dispatchLoop()` thread → drains `SpscRing` → JNI `onMidiEvent()` → `MidiRouter` → `SharedFlow.tryEmit()` → ViewModel
-- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → directly into renderer queues (lock-free)
+- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → directly into instrument queues (lock-free)
 - `mActiveDrum` is `std::atomic<int>` — UI thread writes, audio thread reads safely
 
 ### Cleanup (`MainViewModel.onCleared`)

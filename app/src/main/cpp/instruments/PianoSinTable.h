@@ -1,15 +1,15 @@
 #pragma once
 
-#include "../AudioRenderer.h"
+#include "../Instrument.h"
 #include <atomic>
 #include <array>
 #include <cstdint>
 #include <cmath>
 
-class PianoSinTableRenderer : public AudioRenderer {
+class PianoSinTable : public Instrument {
 
 public:
-    ~PianoSinTableRenderer() override = default;
+    ~PianoSinTable() override = default;
 
     void initSinTable();
 
