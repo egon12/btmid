@@ -39,24 +39,17 @@ void SampleDrum::loadSample(int id, const float* data, int length) {
 }
 
 void SampleDrum::noteOn(int, int note, int velocity) {
-    int head     = mQueueHead.load(std::memory_order_relaxed);
-    int nextHead = (head + 1) & (kQueueCap - 1);
-    if (nextHead != mQueueTail.load(std::memory_order_acquire)) {
-        mQueue[head] = {note, velocity};
-        mQueueHead.store(nextHead, std::memory_order_release);
-    }
+    mQueue.push({note, velocity});
 }
 
 void SampleDrum::noteOff(int, int) {}
 
 void SampleDrum::render(float* buffer, int32_t frames) {
-    int tail = mQueueTail.load(std::memory_order_relaxed);
-    int head = mQueueHead.load(std::memory_order_acquire);
-    while (tail != head) {
-        auto& pn  = mQueue[tail];
-        int   id  = noteToSampleId(pn.note);
+    PendingNote pn;
+    while (mQueue.pop(pn)) {
+        int id  = noteToSampleId(pn.note);
         // Acquire-load: pairs with release-store in loadSample
-        int   len = (id >= 0) ? mSampleLen[id].load(std::memory_order_acquire) : 0;
+        int len = (id >= 0) ? mSampleLen[id].load(std::memory_order_acquire) : 0;
         if (len > 0) {
             for (auto& v : mVoices) {
                 if (!v.active) {
@@ -69,9 +62,7 @@ void SampleDrum::render(float* buffer, int32_t frames) {
                 }
             }
         }
-        tail = (tail + 1) & (kQueueCap - 1);
     }
-    mQueueTail.store(tail, std::memory_order_release);
 
     for (auto& v : mVoices) {
         if (!v.active) continue;

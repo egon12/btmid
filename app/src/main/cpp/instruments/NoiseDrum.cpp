@@ -12,12 +12,7 @@ float NoiseDrum::nextRandom() {
 }
 
 void NoiseDrum::noteOn(int, int note, int velocity) {
-    int head     = mQueueHead.load(std::memory_order_relaxed);
-    int nextHead = (head + 1) & (kQueueCap - 1);
-    if (nextHead != mQueueTail.load(std::memory_order_acquire)) {
-        mQueue[head] = {note, velocity};
-        mQueueHead.store(nextHead, std::memory_order_release);
-    }
+    mQueue.push({note, velocity});
 }
 
 void NoiseDrum::noteOff(int, int) {}
@@ -105,18 +100,14 @@ float NoiseDrum::renderVoiceSample(Voice& v) {
 }
 
 void NoiseDrum::render(float* buffer, int32_t frames) {
-    int tail = mQueueTail.load(std::memory_order_relaxed);
-    int head = mQueueHead.load(std::memory_order_acquire);
-    while (tail != head) {
-        auto& pn  = mQueue[tail];
+    PendingNote pn;
+    while (mQueue.pop(pn)) {
         float gain = pn.velocity / 127.0f * 0.7f;
-        Voice v   = makeVoice(pn.note, gain);
+        Voice v    = makeVoice(pn.note, gain);
         for (auto& slot : mVoices) {
             if (!slot.active) { slot = v; break; }
         }
-        tail = (tail + 1) & (kQueueCap - 1);
     }
-    mQueueTail.store(tail, std::memory_order_release);
 
     for (int i = 0; i < frames; ++i) {
         for (auto& v : mVoices) {

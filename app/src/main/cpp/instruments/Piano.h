@@ -1,7 +1,7 @@
 #pragma once
 #include "../Instrument.h"
+#include "../SpscRing.h"
 #include <array>
-#include <atomic>
 #include <cstdint>
 #include <cmath>
 
@@ -45,12 +45,9 @@ private:
     struct CcEvent      { int cc;  int value;    };
 
     static constexpr int kQueueCap = 32; // must be power-of-2
-    std::array<NoteOnEvent,  kQueueCap> mOnQueue{};
-    std::array<NoteOffEvent, kQueueCap> mOffQueue{};
-    std::array<CcEvent,      kQueueCap> mCcQueue{};
-    std::atomic<int> mOnHead{0},  mOnTail{0};
-    std::atomic<int> mOffHead{0}, mOffTail{0};
-    std::atomic<int> mCcHead{0},  mCcTail{0};
+    SpscRing<NoteOnEvent,  kQueueCap> mOnQueue;
+    SpscRing<NoteOffEvent, kQueueCap> mOffQueue;
+    SpscRing<CcEvent,      kQueueCap> mCcQueue;
 
     std::array<Voice, kMaxVoices> mVoices{};
     uint32_t mTimestamp{0};

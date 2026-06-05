@@ -1,7 +1,7 @@
 #pragma once
 #include "../Instrument.h"
+#include "../SpscRing.h"
 #include <array>
-#include <atomic>
 #include <cstdint>
 #include <cmath>
 
@@ -31,11 +31,8 @@ private:
 
     struct PendingNote { int note; int velocity; };
 
-    // SPSC lock-free ring buffer: noteOn = sole writer, render = sole reader
     static constexpr int kQueueCap = 32; // must be power-of-2
-    std::array<PendingNote, kQueueCap> mQueue{};
-    std::atomic<int> mQueueHead{0};
-    std::atomic<int> mQueueTail{0};
+    SpscRing<PendingNote, kQueueCap> mQueue;
 
     std::array<Voice, kMaxVoices> mVoices{};
     uint32_t mRng{0x12345678u}; // xorshift32, render-thread only

@@ -1,5 +1,6 @@
 #pragma once
 #include "../Instrument.h"
+#include "../SpscRing.h"
 #include <array>
 #include <atomic>
 #include <vector>
@@ -39,9 +40,7 @@ private:
 
     struct PendingNote { int note; int velocity; };
 
-    std::array<PendingNote, kQueueCap> mQueue{};
-    std::atomic<int> mQueueHead{0};
-    std::atomic<int> mQueueTail{0};
+    SpscRing<PendingNote, kQueueCap> mQueue;
 
     std::array<Voice, kMaxVoices> mVoices{};
 

@@ -4,21 +4,11 @@ const float Piano::kReleaseCoeff =
     (float)std::exp(-1.0 / (0.300 * kSampleRate));
 
 void Piano::noteOn(int, int note, int velocity) {
-    int head     = mOnHead.load(std::memory_order_relaxed);
-    int nextHead = (head + 1) & (kQueueCap - 1);
-    if (nextHead != mOnTail.load(std::memory_order_acquire)) {
-        mOnQueue[head] = {note, velocity};
-        mOnHead.store(nextHead, std::memory_order_release);
-    }
+    mOnQueue.push({note, velocity});
 }
 
 void Piano::noteOff(int, int note) {
-    int head     = mOffHead.load(std::memory_order_relaxed);
-    int nextHead = (head + 1) & (kQueueCap - 1);
-    if (nextHead != mOffTail.load(std::memory_order_acquire)) {
-        mOffQueue[head] = {note};
-        mOffHead.store(nextHead, std::memory_order_release);
-    }
+    mOffQueue.push({note});
 }
 
 void Piano::addVoice(int note, int velocity) {
@@ -84,12 +74,7 @@ void Piano::setSustain(bool on) {
 }
 
 void Piano::controlChange(int, int cc, int value) {
-    int head     = mCcHead.load(std::memory_order_relaxed);
-    int nextHead = (head + 1) & (kQueueCap - 1);
-    if (nextHead != mCcTail.load(std::memory_order_acquire)) {
-        mCcQueue[head] = {cc, value};
-        mCcHead.store(nextHead, std::memory_order_release);
-    }
+    mCcQueue.push({cc, value});
 }
 
 void Piano::renderVoice(Voice& v, float* buffer, int32_t frames) {
@@ -134,31 +119,17 @@ void Piano::renderVoice(Voice& v, float* buffer, int32_t frames) {
 
 void Piano::render(float* buffer, int32_t frames) {
     {
-        int tail = mOnTail.load(std::memory_order_relaxed);
-        int head = mOnHead.load(std::memory_order_acquire);
-        while (tail != head) {
-            addVoice(mOnQueue[tail].note, mOnQueue[tail].velocity);
-            tail = (tail + 1) & (kQueueCap - 1);
-        }
-        mOnTail.store(tail, std::memory_order_release);
+        NoteOnEvent ev;
+        while (mOnQueue.pop(ev)) addVoice(ev.note, ev.velocity);
     }
     {
-        int tail = mOffTail.load(std::memory_order_relaxed);
-        int head = mOffHead.load(std::memory_order_acquire);
-        while (tail != head) {
-            releaseVoice(mOffQueue[tail].note);
-            tail = (tail + 1) & (kQueueCap - 1);
-        }
-        mOffTail.store(tail, std::memory_order_release);
+        NoteOffEvent ev;
+        while (mOffQueue.pop(ev)) releaseVoice(ev.note);
     }
     {
-        int tail = mCcTail.load(std::memory_order_relaxed);
-        int head = mCcHead.load(std::memory_order_acquire);
-        while (tail != head) {
-            if (mCcQueue[tail].cc == 64) setSustain(mCcQueue[tail].value >= 64);
-            tail = (tail + 1) & (kQueueCap - 1);
-        }
-        mCcTail.store(tail, std::memory_order_release);
+        CcEvent ev;
+        while (mCcQueue.pop(ev))
+            if (ev.cc == 64) setSustain(ev.value >= 64);
     }
 
     for (auto& v : mVoices) {
