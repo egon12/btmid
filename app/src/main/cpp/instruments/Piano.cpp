@@ -22,12 +22,16 @@ void Piano::noteOff(int, int note) {
 }
 
 void Piano::addVoice(int note, int velocity) {
-    float  peak = velocity / 127.0f * 0.7f;
+    float  peak = std::pow(velocity / 127.0f, 1.5f) * 0.7f;
     double freq = 440.0 * std::pow(2.0, (note - 69) / 12.0);
 
     // Retrigger: deactivate any existing voice for this note
     for (auto& v : mVoices) {
-        if (v.active && v.note == note) { v.active = false; break; }
+        if (v.active && v.note == note) {
+            v.active = false;
+            mSustainedNotes[note] = false;
+            break;
+        }
     }
 
     // Find a free slot, or steal the oldest active voice
@@ -40,6 +44,7 @@ void Piano::addVoice(int note, int velocity) {
         for (auto& v : mVoices) {
             if (v.timestamp < oldest) { oldest = v.timestamp; slot = &v; }
         }
+        mSustainedNotes[slot->note] = false;
     }
 
     slot->active     = true;
@@ -57,8 +62,33 @@ void Piano::addVoice(int note, int velocity) {
 
 void Piano::releaseVoice(int note) {
     for (auto& v : mVoices) {
-        if (v.active && v.note == note && v.phase != Phase::Release)
-            v.phase = Phase::Release;
+        if (v.active && v.note == note && v.phase != Phase::Release) {
+            if (mSustainHeld)
+                mSustainedNotes[note] = true;
+            else
+                v.phase = Phase::Release;
+        }
+    }
+}
+
+void Piano::setSustain(bool on) {
+    mSustainHeld = on;
+    if (!on) {
+        for (int n = 0; n < 128; ++n) {
+            if (mSustainedNotes[n]) {
+                releaseVoice(n);
+                mSustainedNotes[n] = false;
+            }
+        }
+    }
+}
+
+void Piano::controlChange(int, int cc, int value) {
+    int head     = mCcHead.load(std::memory_order_relaxed);
+    int nextHead = (head + 1) & (kQueueCap - 1);
+    if (nextHead != mCcTail.load(std::memory_order_acquire)) {
+        mCcQueue[head] = {cc, value};
+        mCcHead.store(nextHead, std::memory_order_release);
     }
 }
 
@@ -120,6 +150,15 @@ void Piano::render(float* buffer, int32_t frames) {
             tail = (tail + 1) & (kQueueCap - 1);
         }
         mOffTail.store(tail, std::memory_order_release);
+    }
+    {
+        int tail = mCcTail.load(std::memory_order_relaxed);
+        int head = mCcHead.load(std::memory_order_acquire);
+        while (tail != head) {
+            if (mCcQueue[tail].cc == 64) setSustain(mCcQueue[tail].value >= 64);
+            tail = (tail + 1) & (kQueueCap - 1);
+        }
+        mCcTail.store(tail, std::memory_order_release);
     }
 
     for (auto& v : mVoices) {

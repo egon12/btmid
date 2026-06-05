@@ -17,11 +17,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -32,6 +37,7 @@ import org.egon12.btmid.DeviceUiState
 import org.egon12.btmid.DrumBackend
 import org.egon12.btmid.MidiEventUiModel
 import org.egon12.btmid.UiState
+import org.egon12.btmid.synth.NativeAudioEngine
 import org.egon12.btmid.ui.theme.BtmidTheme
 
 @Composable
@@ -84,6 +90,8 @@ fun MainScreen(
                     .fillMaxWidth()
                     .height(120.dp)
             )
+
+            SustainButton()
 
             if (uiState.discoveredDevices.isNotEmpty()) {
                 Text("Discovered devices", style = MaterialTheme.typography.titleSmall)
@@ -185,6 +193,20 @@ private fun EventLog(events: List<MidiEventUiModel>) {
             )
         }
     }
+}
+
+@Composable
+private fun SustainButton(modifier: Modifier = Modifier) {
+    var sustained by remember { mutableStateOf(false) }
+    FilterChip(
+        modifier = modifier,
+        selected = sustained,
+        onClick = {
+            sustained = !sustained
+            NativeAudioEngine.controlChange(0, 64, if (sustained) 127 else 0)
+        },
+        label = { Text("Sustain") },
+    )
 }
 
 @Composable

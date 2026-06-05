@@ -28,6 +28,7 @@ public:
     void stop();
     void noteOn(int channel, int note, int velocity);
     void noteOff(int channel, int note);
+    void controlChange(int channel, int cc, int value);
     void loadSample(int sampleId, const float* data, int length);
     void setDrumBackend(int backendId);
 

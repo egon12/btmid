@@ -10,6 +10,7 @@ public:
     void noteOn(int channel, int note, int velocity) override;
     void noteOff(int channel, int note) override;
     void render(float* buffer, int32_t frames) override;
+    void controlChange(int channel, int cc, int value) override;
 
     static constexpr int kSampleRate    = 44100;
     static constexpr int kAttackSamples = (int)(0.005 * kSampleRate); // 220
@@ -41,17 +42,24 @@ private:
 
     struct NoteOnEvent  { int note; int velocity; };
     struct NoteOffEvent { int note; };
+    struct CcEvent      { int cc;  int value;    };
 
     static constexpr int kQueueCap = 32; // must be power-of-2
     std::array<NoteOnEvent,  kQueueCap> mOnQueue{};
     std::array<NoteOffEvent, kQueueCap> mOffQueue{};
+    std::array<CcEvent,      kQueueCap> mCcQueue{};
     std::atomic<int> mOnHead{0},  mOnTail{0};
     std::atomic<int> mOffHead{0}, mOffTail{0};
+    std::atomic<int> mCcHead{0},  mCcTail{0};
 
     std::array<Voice, kMaxVoices> mVoices{};
     uint32_t mTimestamp{0};
 
+    bool mSustainHeld {false};
+    bool mSustainedNotes[128] {};
+
     void addVoice(int note, int velocity);
     void releaseVoice(int note);
     void renderVoice(Voice& v, float* buffer, int32_t frames);
+    void setSustain(bool on);
 };

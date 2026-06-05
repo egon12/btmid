@@ -80,6 +80,16 @@ void NativeEngine::noteOff(int channel, int note) {
     }
 }
 
+void NativeEngine::controlChange(int channel, int cc, int value) {
+    if (channel == 0 && mPiano)
+        mPiano->controlChange(channel, cc, value);
+    else if (channel == 9) {
+        int idx = mActiveDrum.load(std::memory_order_relaxed);
+        if (mDrumInstruments[idx])
+            mDrumInstruments[idx]->controlChange(channel, cc, value);
+    }
+}
+
 void NativeEngine::loadSample(int sampleId, const float* data, int length) {
     if (mSampleDrum) mSampleDrum->loadSample(sampleId, data, length);
 }
@@ -188,6 +198,8 @@ oboe::DataCallbackResult NativeEngine::onAudioReady(
                     noteOn(m.channel, m.data1, m.data2);
                 else if (m.type == MidiMsgType::NoteOff)
                     noteOff(m.channel, m.data1);
+                else if (m.type == MidiMsgType::CC)
+                    controlChange(m.channel, m.data1, m.data2);
                 mEventQueue.push({ m.channel, static_cast<uint8_t>(m.type),
                                    m.data1, m.data2 });
             }

@@ -39,6 +39,12 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_noteOff(
 }
 
 JNIEXPORT void JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_controlChange(
+        JNIEnv*, jobject, jlong ptr, jint channel, jint cc, jint value) {
+    ENGINE(ptr)->controlChange(channel, cc, value);
+}
+
+JNIEXPORT void JNICALL
 Java_org_egon12_btmid_synth_NativeAudioEngine_setDrumBackend(
         JNIEnv*, jobject, jlong ptr, jint backendId) {
     ENGINE(ptr)->setDrumBackend(backendId);
