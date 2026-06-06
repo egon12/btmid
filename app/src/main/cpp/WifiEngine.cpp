@@ -72,7 +72,6 @@ void WifiEngine::stop() {
 }
 
 void WifiEngine::udpRenderLoop() {
-    constexpr int kSampleRate   = 48000;
     constexpr int kFramesPerBuf = 120;  // 10 ms — valid Opus frame size
     float buf[kFramesPerBuf];
 

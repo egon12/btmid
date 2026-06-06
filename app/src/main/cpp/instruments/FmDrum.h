@@ -11,7 +11,6 @@ public:
     void noteOff(int channel, int note) override;
     void render(float* buffer, int32_t frames) override;
 
-    static constexpr int kSampleRate = 44100;
 
 private:
     static constexpr int    kMaxVoices = 16;

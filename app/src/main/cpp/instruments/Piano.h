@@ -12,9 +12,8 @@ public:
     void render(float* buffer, int32_t frames) override;
     void controlChange(int channel, int cc, int value) override;
 
-    static constexpr int kSampleRate    = 44100;
-    static constexpr int kAttackSamples = (int)(0.005 * kSampleRate); // 220
-    static constexpr int kDecaySamples  = (int)(0.080 * kSampleRate); // 3528
+    static constexpr int kAttackSamples = (int)(0.005 * kSampleRate); // 240
+    static constexpr int kDecaySamples  = (int)(0.080 * kSampleRate); // 3840
 
 private:
     static constexpr int   kMaxVoices = 8;
@@ -23,7 +22,7 @@ private:
     static constexpr double kTwoPi        = 2.0 * M_PI;
     static constexpr float kHarmonicAmps[kHarmonics] = {1.00f, 0.50f, 0.25f, 0.12f, 0.06f};
 
-    // exp(-1 / (0.3 * 44100)) — not constexpr, initialised in .cpp
+    // exp(-1 / (0.3 * kSampleRate)) — not constexpr, initialised in .cpp
     static const float kReleaseCoeff;
 
     enum class Phase { Attack, Decay, Sustain, Release, Done };

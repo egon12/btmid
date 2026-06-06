@@ -96,7 +96,9 @@ class SampleBank(private val context: Context) {
         codec.release()
         extractor.release()
 
-        return downmixToMono(pcm.toFloatArray(), channelCount)
+        val srcRate = srcFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+        val mono = downmixToMono(pcm.toFloatArray(), channelCount)
+        return if (srcRate == TARGET_SAMPLE_RATE) mono else resample(mono, srcRate, TARGET_SAMPLE_RATE)
     }
 
     private fun downmixToMono(interleaved: FloatArray, channels: Int): FloatArray {
@@ -106,5 +108,22 @@ class SampleBank(private val context: Context) {
             for (ch in 0 until channels) sum += interleaved[i * channels + ch]
             sum / channels
         }
+    }
+
+    private fun resample(src: FloatArray, srcRate: Int, dstRate: Int): FloatArray {
+        val ratio = srcRate.toDouble() / dstRate
+        val dstLen = (src.size / ratio).toInt()
+        return FloatArray(dstLen) { i ->
+            val pos = i * ratio
+            val lo = pos.toInt().coerceAtMost(src.size - 1)
+            val hi = (lo + 1).coerceAtMost(src.size - 1)
+            val frac = (pos - lo).toFloat()
+            src[lo] * (1f - frac) + src[hi] * frac
+        }
+    }
+
+    companion object {
+        // Must match kSampleRate in AudioConfig.h
+        private const val TARGET_SAMPLE_RATE = 48000
     }
 }

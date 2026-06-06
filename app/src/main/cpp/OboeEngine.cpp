@@ -18,7 +18,7 @@ void OboeEngine::start() {
            ->setSharingMode(oboe::SharingMode::Exclusive)
            ->setFormat(oboe::AudioFormat::Float)
            ->setChannelCount(oboe::ChannelCount::Mono)
-           ->setSampleRate(44100)
+           ->setSampleRate(kSampleRate)
            ->setDataCallback(this);
 
     oboe::Result result = builder.openStream(mStream);

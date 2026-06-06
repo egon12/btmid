@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "AudioConfig.h"
 
 class Instrument {
 public:
