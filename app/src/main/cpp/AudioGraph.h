@@ -1,8 +1,9 @@
 #pragma once
 #include <jni.h>
+#include <memory>
 #include <string>
+#include "AudioEngine.h"
 #include "InstrumentRepository.h"
-#include "NativeEngine.h"
 
 class AudioGraph {
 public:
@@ -15,6 +16,10 @@ public:
     void start();
     void stop();
 
+    // Swap to a different engine. The old engine is stopped before replacement.
+    // Caller is responsible for any engine-specific setup (e.g. startUdp) afterwards.
+    void setEngine(std::unique_ptr<AudioEngine> engine);
+
     void setInstrument(int channel, const std::string& id);
     void loadDrumSample(int id, const float* data, int len);
 
@@ -26,8 +31,8 @@ public:
     void closeMidiDevice();
 
 private:
-    // mRepository declared first: destroyed after mEngine (reverse order).
-    // mEngine holds raw Instrument* from mRepository, so engine must die first.
-    InstrumentRepository mRepository;
-    NativeEngine         mEngine;
+    // mRepository declared first so it outlives mEngine (reverse destruction order).
+    // OboeEngine holds raw Instrument* from mRepository; engine must die first.
+    InstrumentRepository         mRepository;
+    std::unique_ptr<AudioEngine> mEngine;
 };

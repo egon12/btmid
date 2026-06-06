@@ -31,7 +31,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Language**: Kotlin + C++ (NDK)
 - **UI**: Jetpack Compose with Material3
-- **Audio**: Oboe (low-latency C++ audio stream)
+- **Audio (local)**: Oboe (low-latency C++ audio stream)
+- **Audio (network)**: Opus codec + UDP — encodes rendered PCM and streams over WiFi
 - **MIDI I/O**: AMidi (NDK) via `MidiManager.openBluetoothDevice`
 - **Min/Target SDK**: 36
 - **AGP**: 9.1.1, Kotlin: 2.2.10
@@ -88,19 +89,22 @@ app/src/main/java/org/egon12/btmid/
   MainViewModel.kt           — UiState + scan/connect/disconnect/setDrumBackend actions
 
 app/src/main/cpp/
-  AudioGraph.h/.cpp          — top-level owner; holds NativeEngine + InstrumentRepository; single JNI entry point
-  NativeEngine.h/.cpp        — Oboe stream + AMidi poll loop + SpscRing; routes MIDI via atomic channel map
+  AudioGraph.h/.cpp           — top-level owner; holds unique_ptr<AudioEngine> + InstrumentRepository; single JNI entry point
+  AudioEngine.h               — pure-virtual interface for all audio engines; defines MidiEvt struct
+  OboeEngine.h/.cpp           — AudioEngine impl: Oboe stream + AMidi poll loop + SpscRing; routes MIDI via mChannels[16]
+  WifiEngine.h/.cpp           — AudioEngine impl: renders instruments, encodes with Opus, streams over UDP
   InstrumentRepository.h/.cpp — owns all concrete instruments (lazy-created by string id); only file that includes concrete instrument headers
-  Instrument.h               — pure-virtual interface: noteOn/Off/render(float*, int32_t)
-  MidiParser.h/.cpp          — parseMidi(): raw MIDI 1.0 bytes (with running-status) → MidiMsg structs
-  SpscRing.h                 — lock-free single-producer single-consumer ring buffer (audio→dispatch)
-  jni_bridge.cpp             — all Java_… extern "C" functions; bridges NativeAudioEngine.kt → AudioGraph
+  Instrument.h                — pure-virtual interface: noteOn/Off/render(float*, int32_t)
+  MidiParser.h/.cpp           — parseMidi(): raw MIDI 1.0 bytes (with running-status) → MidiMsg structs
+  SpscRing.h                  — lock-free single-producer single-consumer ring buffer (audio→dispatch)
+  jni_bridge.cpp              — all Java_… extern "C" functions; bridges NativeAudioEngine.kt → AudioGraph
+  opus/                       — Opus codec source (built via add_subdirectory; linked into libbtmid.so)
   instruments/
-    Piano.h/.cpp             — additive sine synthesis, ADSR, 8-voice polyphony
-    NoiseDrum.h/.cpp         — noise-burst synthesis per GM drum note
-    FmDrum.h/.cpp            — FM operator synthesis per GM drum note
-    SampleDrum.h/.cpp        — plays back FloatArray samples loaded from SampleBank
-    PianoSinTable.h/.cpp     — sin-table variant of Piano (lookup-table oscillator)
+    Piano.h/.cpp              — additive sine synthesis, ADSR, 8-voice polyphony
+    NoiseDrum.h/.cpp          — noise-burst synthesis per GM drum note
+    FmDrum.h/.cpp             — FM operator synthesis per GM drum note
+    SampleDrum.h/.cpp         — plays back FloatArray samples loaded from SampleBank
+    PianoSinTable.h/.cpp      — sin-table variant of Piano (lookup-table oscillator)
 ```
 
 Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`, `closed_hat.ogg`, `open_hat.ogg`, `crash.ogg`, `ride.ogg`, `tom.ogg` (all toms share one file). Declared `noCompress` in `build.gradle.kts` so MediaExtractor can seek.
@@ -111,20 +115,30 @@ Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`,
 BLE MIDI device
   → MidiManager.openBluetoothDevice(bluetoothDevice)
   → BleMidiConnection passes MidiDevice to NativeAudioEngine.setOutputPort()
-  → jni_bridge → AudioGraph::openMidiDevice() → NativeEngine::setOutputPort()
-  → NativeEngine::onAudioReady() (Oboe audio thread)
+  → jni_bridge → AudioGraph::openMidiDevice() → AudioEngine::setOutputPort()
+
+OboeEngine path (default — local speaker output):
+  → OboeEngine::onAudioReady() (Oboe audio thread)
       polls AMidiOutputPort_receive()
       → parseMidi() → MidiMsg
       → routes via mChannels[channel] → Instrument::noteOn/Off/CC
       → pushes MidiEvt to SpscRing (lock-free, non-blocking)
       → renders each unique instrument in mChannels → Oboe float output
-  → NativeEngine::dispatchLoop() (dedicated thread)
+  → OboeEngine::dispatchLoop() (dedicated thread)
       drains SpscRing → JNI callback → MidiRouter.onMidiEvent()
       → SharedFlow → MainViewModel → UI event log + activity pulse
 
+WifiEngine path (network output):
+  → WifiEngine::udpRenderLoop() (dedicated thread, 10 ms cadence)
+      polls AMidiOutputPort_receive()
+      → parseMidi() → MidiMsg
+      → routes via mChannels[channel] → Instrument::noteOn/Off/CC
+      → renders each unique instrument in mChannels → float buf
+      → opus_encode_float() → sendto() UDP socket
+
 On-screen input (no BLE device needed)
   PianoKeyboard (ch 0) ──┐
-  DrumTrigger   (ch 9) ──┴→ NativeAudioEngine.noteOn/Off() → jni_bridge → AudioGraph → NativeEngine
+  DrumTrigger   (ch 9) ──┴→ NativeAudioEngine.noteOn/Off() → jni_bridge → AudioGraph → AudioEngine
 ```
 
 ### Permissions (AndroidManifest.xml)
@@ -145,26 +159,44 @@ Three-layer design. `AudioGraph` is the single object exposed to JNI.
 
 ```
 AudioGraph
-├── NativeEngine         — audio I/O; knows only Instrument interface
-└── InstrumentRepository — owns concrete instruments; lazy-creates by string id
+├── AudioEngine (unique_ptr) — audio I/O; knows only Instrument interface
+│   ├── OboeEngine           — Oboe stream → local speaker
+│   └── WifiEngine           — UDP + Opus → network receiver
+└── InstrumentRepository     — owns concrete instruments; lazy-creates by string id
 ```
+
+#### AudioEngine (interface — `AudioEngine.h`)
+
+Pure-virtual base for all audio engines. Also defines the `MidiEvt` struct.
+
+| Method | Pure virtual | Notes |
+|--------|-------------|-------|
+| `start()` / `stop()` | ✓ | lifecycle |
+| `noteOn` / `noteOff` / `controlChange` | ✓ / ✓ / no-op | MIDI routing |
+| `setInstrument(channel, Instrument*)` | no-op | wired by `InstrumentRepository` |
+| `loadSample(id, data, len)` | no-op | only used by `InstrumentRepository` path |
+| `setDrumBackend(id)` | no-op | only used by `InstrumentRepository` path |
+| `setOutputPort` / `clearOutputPort` | ✓ | BLE MIDI device binding |
 
 #### AudioGraph
 
 - Single JNI entry point (`jni_bridge.cpp` holds one `AudioGraph*`)
 - Wires up default instruments in constructor: piano on ch 0, noise_drum on ch 9
-- Owns `InstrumentRepository` (declared first) then `NativeEngine` (declared second) — C++ reverse-destruction order ensures engine stops before instruments are freed
-- `openMidiDevice` / `closeMidiDevice` delegate to `NativeEngine::setOutputPort` / `clearOutputPort`
-- `setInstrument(channel, id)` → repository lazy-creates instrument → `NativeEngine::setInstrument`
+- Owns `InstrumentRepository` (declared first) then `unique_ptr<AudioEngine>` (declared second) — C++ reverse-destruction order ensures engine stops before instruments are freed
+- `setEngine(unique_ptr<AudioEngine>)` — stops current engine, swaps to new one; caller configures and starts the new engine
+- `openMidiDevice` / `closeMidiDevice` delegate to `AudioEngine::setOutputPort` / `clearOutputPort`
+- `setInstrument(channel, id)` → repository lazy-creates instrument → `AudioEngine::setInstrument`
+- `loadDrumSample` → forwards to both `InstrumentRepository` (for OboeEngine's SampleDrum) and `AudioEngine::loadSample` (no-op on OboeEngine)
 
 #### InstrumentRepository
 
 - The **only** file that includes concrete instrument headers (`Piano.h`, `NoiseDrum.h`, `FmDrum.h`, `SampleDrum.h`)
 - Lazy-creates instruments on first `setInstrument` call for a given id
+- Calls `AudioEngine::setInstrument(channel, ptr)` — works for both `OboeEngine` (stores in `mChannels`) and `WifiEngine` (same)
 - Holds `SampleDrum*` for `loadDrumSample`; all other instruments accessed via `Instrument*`
 - Known ids: `"piano"`, `"noise_drum"`, `"fm_drum"`, `"sample_drum"`
 
-#### NativeEngine
+#### OboeEngine
 
 - **Audio**: Oboe stream, `PERFORMANCE_MODE_LOW_LATENCY`, mono float 44100 Hz
 - **Routing**: `std::atomic<Instrument*> mChannels[16]`; `setInstrument(channel, ptr)` is an atomic store safe to call from any thread
@@ -172,6 +204,17 @@ AudioGraph
 - **Render**: iterates `mChannels`, deduplicates by pointer, calls `render()` on each unique instrument
 - **Lock-free bridge**: audio thread pushes `MidiEvt` into `SpscRing<MidiEvt, 256>`; `dispatchLoop()` thread pops and fires JNI callback for UI
 - Knows nothing about concrete instrument types
+
+#### WifiEngine
+
+- **Transport**: UDP socket + Opus encoder; destination `host:port` set at construction time
+- **Routing**: same `std::atomic<Instrument*> mChannels[16]` pattern as `OboeEngine`; wired by `InstrumentRepository`
+- **Render loop**: dedicated thread (`udpRenderLoop`), 10 ms cadence (120 frames @ 48 kHz)
+  - polls AMidi, renders unique instruments into a float buffer
+  - skips UDP send if buffer is all-zero (silence suppression)
+  - encodes with `opus_encode_float` (64 kbps, complexity 0, restricted low-delay) → `sendto`
+- **Start/stop**: `start()` opens encoder + socket + spawns thread; `stop()` joins thread + closes socket + destroys encoder
+- No instrument ownership — instruments are owned by `InstrumentRepository` and wired via `setInstrument`
 
 ### Piano (`Piano`)
 
@@ -182,7 +225,7 @@ AudioGraph
 
 ### Drum Engine
 
-Three C++ backends selectable at runtime. Switching calls `AudioGraph::setInstrument(9, id)` which atomically swaps `mChannels[9]` in `NativeEngine`.
+Three C++ backends selectable at runtime. Switching calls `AudioGraph::setInstrument(9, id)` which atomically swaps `mChannels[9]` in the active `AudioEngine`.
 
 #### NoiseDrum
 
@@ -258,16 +301,17 @@ data class UiState(
 ### Threading
 
 - BLE scan callbacks → main thread (`Handler(mainLooper)`)
-- Oboe audio thread → `NativeEngine::onAudioReady()` → AMidi poll → parse → routes via `mChannels[channel]` → render; pushes `MidiEvt` to `SpscRing` (non-blocking)
-- `dispatchLoop()` thread → drains `SpscRing` → JNI `onMidiEvent()` → `MidiRouter` → `SharedFlow.tryEmit()` → ViewModel
-- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → `AudioGraph` → `NativeEngine` → instrument queues (lock-free)
-- `NativeEngine::mChannels[16]` are `std::atomic<Instrument*>` — UI thread writes via `setInstrument`, audio thread reads safely
+- **OboeEngine**: Oboe audio thread → `OboeEngine::onAudioReady()` → AMidi poll → parse → routes via `mChannels[channel]` → render; pushes `MidiEvt` to `SpscRing` (non-blocking)
+- **OboeEngine**: `dispatchLoop()` thread → drains `SpscRing` → JNI `onMidiEvent()` → `MidiRouter` → `SharedFlow.tryEmit()` → ViewModel
+- **WifiEngine**: `udpRenderLoop()` thread (10 ms timer) → AMidi poll → parse → render → Opus encode → UDP send
+- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → `AudioGraph` → `AudioEngine` → instrument (lock-free via `mChannels`)
+- `AudioEngine::mChannels[16]` are `std::atomic<Instrument*>` — UI thread writes via `setInstrument`, audio/render thread reads safely
 
 ### Cleanup (`MainViewModel.onCleared`)
 
 ```
 bleScanner.stopScan()
 bleMidiConnection.disconnect()   // closeMidiDevice() + closes MidiDevice
-NativeAudioEngine.stop()         // stops Oboe stream, joins dispatchLoop thread
-// AudioGraph destructor: stops NativeEngine, then InstrumentRepository is freed
+NativeAudioEngine.stop()         // stops engine (Oboe stream or UDP thread)
+// AudioGraph destructor: stops AudioEngine, then InstrumentRepository is freed
 ```

@@ -3,22 +3,32 @@ project(btmid)
 
 find_package(oboe REQUIRED CONFIG)
 
+add_subdirectory(opus)
+
 add_library(btmid SHARED
-        MidiParser.cpp
-        NativeEngine.cpp
-        InstrumentRepository.cpp
-        AudioGraph.cpp
-        instruments/Piano.cpp
-        instruments/NoiseDrum.cpp
-        instruments/FmDrum.cpp
-        instruments/SampleDrum.cpp
-        instruments/PianoSinTable.cpp
-        jni_bridge.cpp
+	MidiParser.cpp
+	ChannelEngine.cpp
+	OboeEngine.cpp
+	WifiEngine.cpp
+	InstrumentRepository.cpp
+	AudioGraph.cpp
+	instruments/Piano.cpp
+	instruments/NoiseDrum.cpp
+	instruments/FmDrum.cpp
+	instruments/SampleDrum.cpp
+	instruments/PianoSinTable.cpp
+	jni_bridge.cpp
 )
 
+target_include_directories(btmid PRIVATE
+	opus/include
+)
+
+
 target_link_libraries(btmid
-        oboe::oboe
-        log
-        android
-        amidi
+	oboe::oboe
+	opus
+	log
+	android
+	amidi
 )
