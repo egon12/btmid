@@ -6,6 +6,8 @@ find_package(oboe REQUIRED CONFIG)
 add_library(btmid SHARED
         MidiParser.cpp
         NativeEngine.cpp
+        InstrumentRepository.cpp
+        AudioGraph.cpp
         instruments/Piano.cpp
         instruments/NoiseDrum.cpp
         instruments/FmDrum.cpp

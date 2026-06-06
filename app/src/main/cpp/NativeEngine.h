@@ -2,17 +2,12 @@
 #include <oboe/Oboe.h>
 #include <amidi/AMidi.h>
 #include <jni.h>
-#include <memory>
-#include <vector>
 #include <atomic>
+#include <memory>
 #include <thread>
 #include "Instrument.h"
 #include "MidiParser.h"
 #include "SpscRing.h"
-#include "instruments/Piano.h"
-#include "instruments/NoiseDrum.h"
-#include "instruments/FmDrum.h"
-#include "instruments/SampleDrum.h"
 
 struct MidiEvt { uint8_t channel; uint8_t type; uint8_t data1; uint8_t data2; };
 
@@ -26,13 +21,15 @@ public:
 
     void start();
     void stop();
+
+    // Called by InstrumentRepository to wire a channel to an instrument.
+    void setInstrument(int channel, Instrument* instrument);
+
     void noteOn(int channel, int note, int velocity);
     void noteOff(int channel, int note);
     void controlChange(int channel, int cc, int value);
-    void loadSample(int sampleId, const float* data, int length);
-    void setDrumBackend(int backendId);
 
-    void setOutputPort(JNIEnv* env, jobject jPort, jobject jCallback);
+    void setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback);
     void clearOutputPort();
 
     oboe::DataCallbackResult onAudioReady(
@@ -43,13 +40,8 @@ public:
 private:
     void dispatchLoop();
 
-    std::shared_ptr<oboe::AudioStream>         mStream;
-    std::vector<std::unique_ptr<Instrument>>   mInstruments;
-
-    Piano*       mPiano            {nullptr};
-    Instrument*  mDrumInstruments[3]  {};
-    SampleDrum*  mSampleDrum       {nullptr};
-    std::atomic<int>     mActiveDrum        {0};
+    std::shared_ptr<oboe::AudioStream> mStream;
+    std::atomic<Instrument*>           mChannels[16] {};
 
     // AMidi — mMidiPort atomic so onAudioReady and clearOutputPort don't race
     AMidiDevice*                  mNativeDevice  {nullptr};

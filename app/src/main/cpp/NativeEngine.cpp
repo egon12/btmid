@@ -6,28 +6,16 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-NativeEngine::NativeEngine() {
-    auto piano = std::make_unique<Piano>();
-    mPiano = piano.get();
-    mInstruments.push_back(std::move(piano));
-
-    auto noise = std::make_unique<NoiseDrum>();
-    mDrumInstruments[0] = noise.get();
-    mInstruments.push_back(std::move(noise));
-
-    auto fm = std::make_unique<FmDrum>();
-    mDrumInstruments[1] = fm.get();
-    mInstruments.push_back(std::move(fm));
-
-    auto sdr = std::make_unique<SampleDrum>();
-    mSampleDrum         = sdr.get();
-    mDrumInstruments[2] = sdr.get();
-    mInstruments.push_back(std::move(sdr));
-}
+NativeEngine::NativeEngine() = default;
 
 NativeEngine::~NativeEngine() {
-    stop();          // stop audio stream before touching MIDI port
+    stop();
     clearOutputPort();
+}
+
+void NativeEngine::setInstrument(int channel, Instrument* instrument) {
+    if (channel >= 0 && channel < 16)
+        mChannels[channel].store(instrument, std::memory_order_release);
 }
 
 void NativeEngine::start() {
@@ -63,40 +51,21 @@ void NativeEngine::stop() {
 }
 
 void NativeEngine::noteOn(int channel, int note, int velocity) {
-    if (channel == 0 && mPiano) {
-        mPiano->noteOn(channel, note, velocity);
-    } else if (channel == 9) {
-        int idx = mActiveDrum.load(std::memory_order_relaxed);
-        if (mDrumInstruments[idx]) mDrumInstruments[idx]->noteOn(channel, note, velocity);
-    }
+    if (channel < 0 || channel >= 16) return;
+    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    if (inst) inst->noteOn(channel, note, velocity);
 }
 
 void NativeEngine::noteOff(int channel, int note) {
-    if (channel == 0 && mPiano) {
-        mPiano->noteOff(channel, note);
-    } else if (channel == 9) {
-        int idx = mActiveDrum.load(std::memory_order_relaxed);
-        if (mDrumInstruments[idx]) mDrumInstruments[idx]->noteOff(channel, note);
-    }
+    if (channel < 0 || channel >= 16) return;
+    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    if (inst) inst->noteOff(channel, note);
 }
 
 void NativeEngine::controlChange(int channel, int cc, int value) {
-    if (channel == 0 && mPiano)
-        mPiano->controlChange(channel, cc, value);
-    else if (channel == 9) {
-        int idx = mActiveDrum.load(std::memory_order_relaxed);
-        if (mDrumInstruments[idx])
-            mDrumInstruments[idx]->controlChange(channel, cc, value);
-    }
-}
-
-void NativeEngine::loadSample(int sampleId, const float* data, int length) {
-    if (mSampleDrum) mSampleDrum->loadSample(sampleId, data, length);
-}
-
-void NativeEngine::setDrumBackend(int backendId) {
-    if (backendId >= 0 && backendId < 3)
-        mActiveDrum.store(backendId, std::memory_order_relaxed);
+    if (channel < 0 || channel >= 16) return;
+    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    if (inst) inst->controlChange(channel, cc, value);
 }
 
 void NativeEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) {
@@ -148,7 +117,7 @@ void NativeEngine::clearOutputPort() {
         mJvm->AttachCurrentThread(&env, nullptr);
         env->DeleteGlobalRef(mMidiCallback);
         mJvm->DetachCurrentThread();
-        mMidiCallback  = nullptr;
+        mMidiCallback = nullptr;
     }
     mJvm           = nullptr;
     mOnMidiEventId = nullptr;
@@ -208,6 +177,21 @@ oboe::DataCallbackResult NativeEngine::onAudioReady(
 
     auto* buf = static_cast<float*>(audioData);
     for (int i = 0; i < numFrames; ++i) buf[i] = 0.0f;
-    for (auto& r : mInstruments) r->render(buf, numFrames);
+
+    // Render each unique instrument once (multiple channels may share one instrument)
+    Instrument* rendered[16] {};
+    int renderCount = 0;
+    for (auto& ch : mChannels) {
+        Instrument* inst = ch.load(std::memory_order_acquire);
+        if (!inst) continue;
+        bool seen = false;
+        for (int j = 0; j < renderCount; ++j)
+            if (rendered[j] == inst) { seen = true; break; }
+        if (!seen) {
+            rendered[renderCount++] = inst;
+            inst->render(buf, numFrames);
+        }
+    }
+
     return oboe::DataCallbackResult::Continue;
 }

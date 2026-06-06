@@ -88,11 +88,13 @@ app/src/main/java/org/egon12/btmid/
   MainViewModel.kt           — UiState + scan/connect/disconnect/setDrumBackend actions
 
 app/src/main/cpp/
-  NativeEngine.h/.cpp        — NativeEngine class; owns Oboe stream, instruments, AMidi poll loop, SpscRing
+  AudioGraph.h/.cpp          — top-level owner; holds NativeEngine + InstrumentRepository; single JNI entry point
+  NativeEngine.h/.cpp        — Oboe stream + AMidi poll loop + SpscRing; routes MIDI via atomic channel map
+  InstrumentRepository.h/.cpp — owns all concrete instruments (lazy-created by string id); only file that includes concrete instrument headers
   Instrument.h               — pure-virtual interface: noteOn/Off/render(float*, int32_t)
   MidiParser.h/.cpp          — parseMidi(): raw MIDI 1.0 bytes (with running-status) → MidiMsg structs
   SpscRing.h                 — lock-free single-producer single-consumer ring buffer (audio→dispatch)
-  jni_bridge.cpp             — JNI_OnLoad + all Java_… extern "C" functions bridging NativeAudioEngine.kt
+  jni_bridge.cpp             — all Java_… extern "C" functions; bridges NativeAudioEngine.kt → AudioGraph
   instruments/
     Piano.h/.cpp             — additive sine synthesis, ADSR, 8-voice polyphony
     NoiseDrum.h/.cpp         — noise-burst synthesis per GM drum note
@@ -109,20 +111,20 @@ Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`,
 BLE MIDI device
   → MidiManager.openBluetoothDevice(bluetoothDevice)
   → BleMidiConnection passes MidiDevice to NativeAudioEngine.setOutputPort()
-  → jni_bridge: AMidi opens the device's output port
+  → jni_bridge → AudioGraph::openMidiDevice() → NativeEngine::setOutputPort()
   → NativeEngine::onAudioReady() (Oboe audio thread)
       polls AMidiOutputPort_receive()
       → parseMidi() → MidiMsg
-      → routes to Piano (ch 0) or active drum Instrument (ch 9)
+      → routes via mChannels[channel] → Instrument::noteOn/Off/CC
       → pushes MidiEvt to SpscRing (lock-free, non-blocking)
-      → sums all Instrument::render() buffers → Oboe float output
+      → renders each unique instrument in mChannels → Oboe float output
   → NativeEngine::dispatchLoop() (dedicated thread)
       drains SpscRing → JNI callback → MidiRouter.onMidiEvent()
       → SharedFlow → MainViewModel → UI event log + activity pulse
 
 On-screen input (no BLE device needed)
   PianoKeyboard (ch 0) ──┐
-  DrumTrigger   (ch 9) ──┴→ NativeAudioEngine.noteOn/Off() → jni_bridge → NativeEngine
+  DrumTrigger   (ch 9) ──┴→ NativeAudioEngine.noteOn/Off() → jni_bridge → AudioGraph → NativeEngine
 ```
 
 ### Permissions (AndroidManifest.xml)
@@ -137,12 +139,39 @@ On-screen input (no BLE device needed)
 
 `neverForLocation` avoids requiring `ACCESS_FINE_LOCATION` on API 31+.
 
-### NativeEngine (C++)
+### C++ Architecture
 
-- **Audio**: Oboe stream, `USAGE_GAME` + `PERFORMANCE_MODE_LOW_LATENCY`, mono float 44100 Hz
-- **MIDI poll**: `AMidiOutputPort_receive()` called at the top of each `onAudioReady()` callback
-- **Routing**: channel 0 → `Piano`; channel 9 → `mDrumInstruments[mActiveDrum]`
+Three-layer design. `AudioGraph` is the single object exposed to JNI.
+
+```
+AudioGraph
+├── NativeEngine         — audio I/O; knows only Instrument interface
+└── InstrumentRepository — owns concrete instruments; lazy-creates by string id
+```
+
+#### AudioGraph
+
+- Single JNI entry point (`jni_bridge.cpp` holds one `AudioGraph*`)
+- Wires up default instruments in constructor: piano on ch 0, noise_drum on ch 9
+- Owns `InstrumentRepository` (declared first) then `NativeEngine` (declared second) — C++ reverse-destruction order ensures engine stops before instruments are freed
+- `openMidiDevice` / `closeMidiDevice` delegate to `NativeEngine::setOutputPort` / `clearOutputPort`
+- `setInstrument(channel, id)` → repository lazy-creates instrument → `NativeEngine::setInstrument`
+
+#### InstrumentRepository
+
+- The **only** file that includes concrete instrument headers (`Piano.h`, `NoiseDrum.h`, `FmDrum.h`, `SampleDrum.h`)
+- Lazy-creates instruments on first `setInstrument` call for a given id
+- Holds `SampleDrum*` for `loadDrumSample`; all other instruments accessed via `Instrument*`
+- Known ids: `"piano"`, `"noise_drum"`, `"fm_drum"`, `"sample_drum"`
+
+#### NativeEngine
+
+- **Audio**: Oboe stream, `PERFORMANCE_MODE_LOW_LATENCY`, mono float 44100 Hz
+- **Routing**: `std::atomic<Instrument*> mChannels[16]`; `setInstrument(channel, ptr)` is an atomic store safe to call from any thread
+- **MIDI poll**: `AMidiOutputPort_receive()` called at the top of each `onAudioReady()` callback; routes via `mChannels[channel]`
+- **Render**: iterates `mChannels`, deduplicates by pointer, calls `render()` on each unique instrument
 - **Lock-free bridge**: audio thread pushes `MidiEvt` into `SpscRing<MidiEvt, 256>`; `dispatchLoop()` thread pops and fires JNI callback for UI
+- Knows nothing about concrete instrument types
 
 ### Piano (`Piano`)
 
@@ -153,7 +182,7 @@ On-screen input (no BLE device needed)
 
 ### Drum Engine
 
-Three C++ backends selectable at runtime. `mActiveDrum` is `std::atomic<int>` — safe to swap between UI and audio threads.
+Three C++ backends selectable at runtime. Switching calls `AudioGraph::setInstrument(9, id)` which atomically swaps `mChannels[9]` in `NativeEngine`.
 
 #### NoiseDrum
 
@@ -182,7 +211,7 @@ FM formula: `out = amp × env(t) × sin(2π·fC·t + depth × mod)` where `mod =
 
 #### SampleDrum
 
-Plays back pre-decoded OGG assets loaded by `SampleBank`. `SampleBank.load()` runs on `Dispatchers.IO` at startup; decoded `FloatArray`s are passed to `NativeAudioEngine.loadSample()` → JNI → `NativeEngine::loadSample()`. The "Samples" chip in the UI is disabled with a loading spinner until loading completes.
+Plays back pre-decoded OGG assets loaded by `SampleBank`. `SampleBank.load()` runs on `Dispatchers.IO` at startup; decoded `FloatArray`s are passed to `NativeAudioEngine.loadSample()` → JNI → `AudioGraph::loadDrumSample()` → `InstrumentRepository::loadDrumSample()` → `SampleDrum::loadSample()`. The "Samples" chip in the UI is disabled with a loading spinner until loading completes.
 
 #### Backend Selector UI
 
@@ -192,7 +221,7 @@ Plays back pre-decoded OGG assets loaded by `SampleBank`. `SampleBank.load()` ru
 [ Noise ]  [ FM Synth ]  [ Samples ]
 ```
 
-The selected backend is persisted across restarts via `DrumBackendStore` (DataStore Preferences key `"drum_backend"`). `setDrumBackend(ordinal)` maps: 0 = Noise, 1 = FM, 2 = Samples.
+The selected backend is persisted across restarts via `DrumBackendStore` (DataStore Preferences key `"drum_backend"`). `setDrumBackend(ordinal)` maps in `jni_bridge.cpp`: 0 → `"noise_drum"`, 1 → `"fm_drum"`, 2 → `"sample_drum"`, then calls `AudioGraph::setInstrument(9, id)`.
 
 ### On-Screen Instruments
 
@@ -229,15 +258,16 @@ data class UiState(
 ### Threading
 
 - BLE scan callbacks → main thread (`Handler(mainLooper)`)
-- Oboe audio thread → `NativeEngine::onAudioReady()` → AMidi poll → parse → render; pushes `MidiEvt` to `SpscRing` (non-blocking)
+- Oboe audio thread → `NativeEngine::onAudioReady()` → AMidi poll → parse → routes via `mChannels[channel]` → render; pushes `MidiEvt` to `SpscRing` (non-blocking)
 - `dispatchLoop()` thread → drains `SpscRing` → JNI `onMidiEvent()` → `MidiRouter` → `SharedFlow.tryEmit()` → ViewModel
-- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → directly into instrument queues (lock-free)
-- `mActiveDrum` is `std::atomic<int>` — UI thread writes, audio thread reads safely
+- `NativeAudioEngine.noteOn/Off()` (called from UI thread) → JNI → `AudioGraph` → `NativeEngine` → instrument queues (lock-free)
+- `NativeEngine::mChannels[16]` are `std::atomic<Instrument*>` — UI thread writes via `setInstrument`, audio thread reads safely
 
 ### Cleanup (`MainViewModel.onCleared`)
 
 ```
 bleScanner.stopScan()
-bleMidiConnection.disconnect()   // clearOutputPort() + closes MidiDevice
+bleMidiConnection.disconnect()   // closeMidiDevice() + closes MidiDevice
 NativeAudioEngine.stop()         // stops Oboe stream, joins dispatchLoop thread
+// AudioGraph destructor: stops NativeEngine, then InstrumentRepository is freed
 ```
