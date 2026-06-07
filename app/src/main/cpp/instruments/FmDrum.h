@@ -11,7 +11,6 @@ public:
     void noteOff(int channel, int note) override;
     void render(float* buffer, int32_t frames) override;
 
-
 private:
     static constexpr int    kMaxVoices = 16;
     static constexpr double kTwoPi    = 2.0 * M_PI;

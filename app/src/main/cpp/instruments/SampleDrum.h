@@ -23,10 +23,10 @@ public:
         kNumSamples
     };
 
-    static int noteToSampleId(int note);
     static int nameToSampleId(const char* name);
 
 private:
+    static int noteToSampleId(int note);
     static constexpr int kMaxVoices = 16;
     static constexpr int kQueueCap  = 32; // must be power-of-2
 

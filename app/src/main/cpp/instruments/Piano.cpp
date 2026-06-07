@@ -3,14 +3,29 @@
 const float Piano::kReleaseCoeff =
         (float) std::exp(-1.0 / (0.300 * kSampleRate));
 
-void Piano::noteOn(int, int note, int velocity) {
-    mOnQueue.push({note, velocity});
-}
+void Piano::noteOn(int, int note, int velocity) { mOnQ.push({note, velocity}); }
 
-void Piano::noteOff(int, int note) { mOffQueue.push({note}); }
+void Piano::noteOff(int, int note) { mOffQ.push({note}); }
 
-void Piano::controlChange(int, int cc, int value) {
-    mCcQueue.push({cc, value});
+void Piano::controlChange(int, int cc, int value) { mCcQ.push({cc, value}); }
+
+void Piano::render(float *buffer, int32_t frames) {
+    {
+        NoteOnEvent ev{};
+        while (mOnQ.pop(ev)) addVoice(ev.note, ev.velocity);
+    }
+    {
+        NoteOffEvent ev{};
+        while (mOffQ.pop(ev)) releaseVoice(ev.note);
+    }
+    {
+        CcEvent ev{};
+        while (mCcQ.pop(ev)) if (ev.cc == 64) setSustain(ev.value >= 64);
+    }
+
+    for (auto &v: mVoices) {
+        if (v.active) renderVoice(v, buffer, frames);
+    }
 }
 
 
@@ -126,22 +141,3 @@ void Piano::renderVoice(Voice &v, float *buffer, int32_t frames) {
     }
 }
 
-void Piano::render(float *buffer, int32_t frames) {
-    {
-        NoteOnEvent ev{};
-        while (mOnQueue.pop(ev)) addVoice(ev.note, ev.velocity);
-    }
-    {
-        NoteOffEvent ev{};
-        while (mOffQueue.pop(ev)) releaseVoice(ev.note);
-    }
-    {
-        CcEvent ev{};
-        while (mCcQueue.pop(ev))
-            if (ev.cc == 64) setSustain(ev.value >= 64);
-    }
-
-    for (auto &v: mVoices) {
-        if (v.active) renderVoice(v, buffer, frames);
-    }
-}

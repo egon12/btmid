@@ -12,14 +12,14 @@ public:
 
     void noteOff(int channel, int note) override;
 
-    void render(float *buffer, int32_t frames) override;
-
     void controlChange(int channel, int cc, int value) override;
 
+    void render(float *buffer, int32_t frames) override;
+
+private:
     static constexpr int kAttackSamples = (int) (0.005 * kSampleRate); // 240
     static constexpr int kDecaySamples = (int) (0.080 * kSampleRate); // 3840
 
-private:
     static constexpr int kMaxVoices = 8;
     static constexpr int kHarmonics = 5;
     static constexpr float kSustainLevel = 0.60f;
@@ -58,9 +58,9 @@ private:
     };
 
     static constexpr int kQueueCap = 32; // must be power-of-2
-    SpscRing<NoteOnEvent, kQueueCap> mOnQueue;
-    SpscRing<NoteOffEvent, kQueueCap> mOffQueue;
-    SpscRing<CcEvent, kQueueCap> mCcQueue;
+    SpscRing<NoteOnEvent, kQueueCap> mOnQ;
+    SpscRing<NoteOffEvent, kQueueCap> mOffQ;
+    SpscRing<CcEvent, kQueueCap> mCcQ;
 
     std::array<Voice, kMaxVoices> mVoices{};
     uint32_t mTimestamp{0};
