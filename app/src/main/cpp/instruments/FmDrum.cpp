@@ -1,10 +1,10 @@
 #include "FmDrum.h"
 
 static float  envCoeff(double decayMs) {
-    return (float)std::exp(-1.0 / (decayMs / 1000.0 * FmDrum::kSampleRate));
+    return (float)std::exp(-1.0 / (decayMs / 1000.0 * kSampleRate));
 }
 static double sweepCoeff(double tauMs) {
-    return std::exp(-1.0 / (tauMs / 1000.0 * FmDrum::kSampleRate));
+    return std::exp(-1.0 / (tauMs / 1000.0 * kSampleRate));
 }
 
 float FmDrum::nextRandom() {

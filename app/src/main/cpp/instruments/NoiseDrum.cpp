@@ -1,7 +1,7 @@
 #include "NoiseDrum.h"
 
 static float makeDecayCoeff(double decayMs) {
-    return (float)std::exp(-1.0 / (decayMs / 1000.0 * NoiseDrum::kSampleRate));
+    return (float)std::exp(-1.0 / (decayMs / 1000.0 * kSampleRate));
 }
 
 float NoiseDrum::nextRandom() {
