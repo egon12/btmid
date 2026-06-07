@@ -70,11 +70,20 @@ fun MainScreen(
                 midiActivityPulse = uiState.midiActivityPulse,
             )
 
-            ScanControls(
-                connectionStatus = uiState.connectionStatus,
-                onStartScan = onStartScan,
-                onStopScan = onStopScan,
-            )
+            Row {
+                ScanControls(
+                    connectionStatus = uiState.connectionStatus,
+                    onStartScan = onStartScan,
+                    onStopScan = onStopScan,
+                )
+
+                EngineSelector(
+                    selectEngineDialogVisible = uiState.selectEngineDialogVisible,
+                    showSelectEngineDialog = showSelectEngineDialog,
+                    onSelectEngine = onSelectEngine,
+                    currentEngine = uiState.engine,
+                )
+            }
 
             if (uiState.discoveredDevices.isNotEmpty()) {
                 Text("Discovered devices", style = MaterialTheme.typography.titleSmall)
@@ -88,12 +97,6 @@ fun MainScreen(
                 }
             }
 
-            EngineSelector(
-                selectEngineDialogVisible = uiState.selectEngineDialogVisible,
-                showSelectEngineDialog = showSelectEngineDialog,
-                onSelectEngine = onSelectEngine,
-                currentEngine = uiState.engine,
-            )
 
             DrumEngineSelector(
                 selected = uiState.drumBackend,
