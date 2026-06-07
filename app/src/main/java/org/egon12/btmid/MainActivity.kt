@@ -48,7 +48,9 @@ class MainActivity : ComponentActivity() {
                         onConnect = { vm.connect(it) },
                         onDisconnect = { vm.disconnect() },
                         onSetDrumBackend = { vm.setDrumBackend(it) },
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
+                        onSelectEngine = { vm.selectEngine(it) }
                     )
                 }
             }

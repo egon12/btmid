@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.egon12.btmid.AudioEngine
 import org.egon12.btmid.ConnectionStatus
 import org.egon12.btmid.DeviceUiState
 import org.egon12.btmid.DrumBackend
@@ -49,6 +50,8 @@ fun MainScreen(
     onConnect: (DeviceUiState) -> Unit,
     onDisconnect: () -> Unit,
     onSetDrumBackend: (DrumBackend) -> Unit,
+    showSelectEngineDialog: (Boolean) -> Unit,
+    onSelectEngine: (AudioEngine) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -73,6 +76,25 @@ fun MainScreen(
                 onStopScan = onStopScan,
             )
 
+            if (uiState.discoveredDevices.isNotEmpty()) {
+                Text("Discovered devices", style = MaterialTheme.typography.titleSmall)
+                uiState.discoveredDevices.forEach { device ->
+                    DeviceListItem(
+                        device = device,
+                        isConnected = device.address == uiState.connectedDeviceAddress,
+                        onConnect = { onConnect(device) },
+                        onDisconnect = onDisconnect,
+                    )
+                }
+            }
+
+            EngineSelector(
+                selectEngineDialogVisible = uiState.selectEngineDialogVisible,
+                showSelectEngineDialog = showSelectEngineDialog,
+                onSelectEngine = onSelectEngine,
+                currentEngine = uiState.engine,
+            )
+
             DrumEngineSelector(
                 selected = uiState.drumBackend,
                 samplesLoaded = uiState.samplesLoaded,
@@ -93,17 +115,6 @@ fun MainScreen(
 
             SustainButton()
 
-            if (uiState.discoveredDevices.isNotEmpty()) {
-                Text("Discovered devices", style = MaterialTheme.typography.titleSmall)
-                uiState.discoveredDevices.forEach { device ->
-                    DeviceListItem(
-                        device = device,
-                        isConnected = device.address == uiState.connectedDeviceAddress,
-                        onConnect = { onConnect(device) },
-                        onDisconnect = onDisconnect,
-                    )
-                }
-            }
 
             if (uiState.recentEvents.isNotEmpty()) {
                 HorizontalDivider()
@@ -112,6 +123,7 @@ fun MainScreen(
         }
     }
 }
+
 
 @Composable
 private fun StatusRow(
@@ -248,6 +260,8 @@ private fun MainScreenPermissionNeededPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            showSelectEngineDialog = {},
+            onSelectEngine = {},
         )
     }
 }
@@ -275,6 +289,8 @@ private fun MainScreenConnectedPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            showSelectEngineDialog = {},
+            onSelectEngine = {},
         )
     }
 }
@@ -298,6 +314,8 @@ private fun MainScreenScanningPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            showSelectEngineDialog = {},
+            onSelectEngine = {},
         )
     }
 }

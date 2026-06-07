@@ -1,6 +1,7 @@
 package org.egon12.btmid.synth
 
 import android.media.midi.MidiDevice
+import org.egon12.btmid.AudioEngine
 
 object NativeAudioEngine {
     init {
@@ -19,9 +20,19 @@ object NativeAudioEngine {
     fun noteOff(channel: Int, note: Int) = noteOff(ptr, channel, note)
     fun controlChange(channel: Int, cc: Int, value: Int) = controlChange(ptr, channel, cc, value)
     fun loadSample(name: String, data: FloatArray) = loadSample(ptr, name, data)
+    fun setInstrument(channel: Int, name: String) = setInstrument(ptr, channel, name)
     fun setDrumBackend(backendId: Int) = setDrumBackend(ptr, backendId)
+
+    fun setEngine(audioEngine: AudioEngine) {
+        when (audioEngine) {
+            AudioEngine.Oboe -> setEngine(ptr, 1, "")
+            is AudioEngine.Wifi -> setEngine(ptr, 2, audioEngine.host)
+        }
+    }
+
     fun setOutputPort(device: MidiDevice, listener: MidiEventListener) =
         setOutputPort(ptr, device, listener)
+
     fun clearOutputPort() = clearOutputPort(ptr)
 
     private external fun create(): Long
@@ -32,7 +43,10 @@ object NativeAudioEngine {
     private external fun noteOff(ptr: Long, channel: Int, note: Int)
     private external fun controlChange(ptr: Long, channel: Int, cc: Int, value: Int)
     private external fun loadSample(ptr: Long, name: String, data: FloatArray)
+    private external fun setInstrument(ptr: Long, channel: Int, name: String)
     private external fun setDrumBackend(ptr: Long, backendId: Int)
+
+    private external fun setEngine(ptr: Long, engineId: Int, ip: String)
     private external fun setOutputPort(ptr: Long, device: MidiDevice, callback: MidiEventListener)
     private external fun clearOutputPort(ptr: Long)
 }

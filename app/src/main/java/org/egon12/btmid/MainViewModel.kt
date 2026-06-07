@@ -4,22 +4,27 @@ import android.app.Application
 import android.bluetooth.BluetoothManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.egon12.btmid.bluetooth.BleMidiConnection
 import org.egon12.btmid.bluetooth.BleScanner
 import org.egon12.btmid.midi.MidiEvent
 import org.egon12.btmid.midi.MidiRouter
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.egon12.btmid.synth.NativeAudioEngine
 import org.egon12.btmid.synth.SampleBank
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
+
+sealed class AudioEngine {
+    object Oboe : AudioEngine();
+    data class Wifi(val host: String, val port: Int) : AudioEngine();
+}
 
 data class DeviceUiState(val address: String, val name: String)
 data class MidiEventUiModel(val description: String)
@@ -33,6 +38,8 @@ data class UiState(
     val midiActivityPulse: Boolean = false,
     val drumBackend: DrumBackend = DrumBackend.Noise,
     val samplesLoaded: Boolean = false,
+    val engine: AudioEngine = AudioEngine.Oboe,
+    val selectEngineDialogVisible: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -68,7 +75,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val current = _uiState.value
                 _uiState.value = current.copy(
-                    recentEvents = (current.recentEvents + MidiEventUiModel(description)).takeLast(10),
+                    recentEvents = (current.recentEvents + MidiEventUiModel(description)).takeLast(
+                        10
+                    ),
                     midiActivityPulse = !current.midiActivityPulse,
                 )
             }
@@ -136,5 +145,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         bleScanner.stopScan()
         bleMidiConnection.disconnect()
         NativeAudioEngine.stop()
+    }
+
+    fun showSelectEngineDialog(it: Boolean) {
+        _uiState.value = _uiState.value.copy(selectEngineDialogVisible = it)
+    }
+
+    fun selectEngine(it: AudioEngine) {
+        NativeAudioEngine.setEngine(it)
+        NativeAudioEngine.setInstrument(0, "piano")
+        NativeAudioEngine.setInstrument(9, "sample_drum")
+        NativeAudioEngine.start()
     }
 }
