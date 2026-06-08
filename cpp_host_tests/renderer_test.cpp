@@ -2,11 +2,11 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
-#include "SineTestRenderer.h"
-#include "renderers/NoiseDrumRenderer.h"
-#include "renderers/FmDrumRenderer.h"
-#include "renderers/PianoRenderer.h"
-#include "renderers/PianoSinTableRenderer.h"
+#include "instruments/NoiseDrum.h"
+#include "instruments/FmDrum.h"
+#include "instruments/Piano.h"
+#include "instruments/PianoSinTable.h"
+#include "instruments/WaveTable.h"
 #include "wav_writer.h"
 
 static int gPass = 0, gFail = 0;
@@ -29,95 +29,40 @@ static bool allZero(const float* buf, int n) {
 }
 
 // --- tests ---
+static void write_wav_wave_table() {
 
-static void test_silence_before_noteOn() {
-    SineTestRenderer r;
-    float buf[256] = {};
-    r.render(buf, 256);
-    CHECK(allZero(buf, 256), "silence before noteOn");
-}
+    const int sampleRate  = kSampleRate;
+    const int totalSamples = sampleRate * 2;
+    std::vector<float> out_sin(totalSamples, 0.0f);
+    std::vector<float> out_saw(totalSamples, 0.0f);
+    std::vector<float> out_square(totalSamples, 0.0f);
 
-static void test_sound_after_noteOn() {
-    SineTestRenderer r;
-    r.noteOn(0, 60, 100);
-    float buf[256] = {};
-    r.render(buf, 256);
-    CHECK(maxAmp(buf, 256) > 0.1f, "audible output after noteOn");
-}
-
-static void test_silence_after_500ms() {
-    SineTestRenderer r;
-    r.noteOn(0, 60, 100);
-    // drain exactly 500ms
-    const int drain = 44100 / 2;
-    std::vector<float> tmp(drain, 0.0f);
-    for (int i = 0; i < drain; i += 256) {
-        int n = std::min(256, drain - i);
-        r.render(tmp.data() + i, n);
+    const float sampleRateFloat = static_cast<float>(sampleRate);
+    for (int i = 0; i < totalSamples; i++) {
+	    float t = static_cast<float>(i) / sampleRateFloat;
+	    out_sin[i] = 0.7f * WaveTable::sin(440.0f, t);
+	    out_saw[i] = 0.7f * WaveTable::saw(440.0f, t);
+        out_square[i] = 0.7f * WaveTable::square(440.0f, t);
     }
-    float tail[256] = {};
-    r.render(tail, 256);
-    CHECK(allZero(tail, 256), "silence after 500 ms decay");
+
+    auto f = fopen("wave.plt", "wb");
+    for (int i = 0; i < 220; i++) {
+        fprintf(f, "%f\n", out_saw[i]);
+    }
+    fclose(f);
+
+    writeWav("wave_table_sin.wav", out_sin.data(), totalSamples, sampleRate);
+    printf("INFO  wrote wave_table_sin.wav (sin in 440 Hz)\n");
+    writeWav("wave_table_saw.wav", out_saw.data(), totalSamples, sampleRate);
+    printf("INFO  wrote wave_table_saw.wav (in 440 Hz)\n");
+    writeWav("wave_table_square.wav", out_square.data(), totalSamples, sampleRate);
+    printf("INFO  wrote wave_table_square.wav (in 440 Hz)\n");
 }
 
-static void test_second_noteOn_restarts() {
-    SineTestRenderer r;
-    r.noteOn(0, 60, 100);
-    // drain 400ms (still playing)
-    const int drain = 44100 * 4 / 10;
-    std::vector<float> tmp(drain, 0.0f);
-    for (int i = 0; i < drain; i += 256) {
-        int n = std::min(256, drain - i);
-        r.render(tmp.data() + i, n);
-    }
-    // second noteOn resets timer; drain another 450ms
-    r.noteOn(0, 60, 100);
-    const int drain2 = 44100 * 45 / 100;
-    std::vector<float> tmp2(drain2, 0.0f);
-    for (int i = 0; i < drain2; i += 256) {
-        int n = std::min(256, drain2 - i);
-        r.render(tmp2.data() + i, n);
-    }
-    float check[256] = {};
-    r.render(check, 256);
-    CHECK(maxAmp(check, 256) > 0.0f, "second noteOn restarts 500 ms window");
-}
 
-// --- WAV output for listening ---
+// --- NoiseDrum helpers ---
 
-static void write_wav_sine() {
-    SineTestRenderer r;
-    const int samples = 44100;
-    std::vector<float> out(samples, 0.0f);
-    r.noteOn(0, 60, 100);
-    for (int i = 0; i < samples; i += 256) {
-        int n = std::min(256, samples - i);
-        r.render(out.data() + i, n);
-    }
-    writeWav("sine_test.wav", out.data(), samples, 44100);
-    printf("INFO  wrote sine_test.wav  (open to hear 440 Hz sine, 500 ms)\n");
-}
-
-static void write_wav_poly() {
-    // Two notes overlapping: noteOn at t=0 and t=250ms
-    SineTestRenderer r;
-    const int samples = 44100;
-    std::vector<float> out(samples, 0.0f);
-
-    r.noteOn(0, 60, 100);
-    const int half = samples / 4; // 250ms
-    for (int i = 0; i < samples; i += 256) {
-        if (i == half) r.noteOn(0, 60, 100); // restart mid-way
-        int n = std::min(256, samples - i);
-        r.render(out.data() + i, n);
-    }
-    writeWav("sine_restart.wav", out.data(), samples, 44100);
-    printf("INFO  wrote sine_restart.wav (noteOn re-triggered at 250 ms)\n");
-}
-
-// --- NoiseDrumRenderer helpers ---
-
-static void renderDrum(NoiseDrumRenderer& r, int note, int velocity,
+static void renderDrum(NoiseDrum& r, int note, int velocity,
                        float* out, int samples) {
     r.noteOn(0, note, velocity);
     for (int i = 0; i < samples; i += 256) {
@@ -126,17 +71,17 @@ static void renderDrum(NoiseDrumRenderer& r, int note, int velocity,
     }
 }
 
-// --- NoiseDrumRenderer tests ---
+// --- NoiseDrum tests ---
 
 static void test_drum_silence_before_noteOn() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     float buf[256] = {};
     r.render(buf, 256);
     CHECK(allZero(buf, 256), "drum: silence before any noteOn");
 }
 
 static void test_drum_kick_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 36, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -144,7 +89,7 @@ static void test_drum_kick_sound() {
 }
 
 static void test_drum_snare_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 38, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -152,7 +97,7 @@ static void test_drum_snare_sound() {
 }
 
 static void test_drum_closed_hat_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 42, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -160,7 +105,7 @@ static void test_drum_closed_hat_sound() {
 }
 
 static void test_drum_open_hat_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 46, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -168,7 +113,7 @@ static void test_drum_open_hat_sound() {
 }
 
 static void test_drum_crash_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 49, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -176,7 +121,7 @@ static void test_drum_crash_sound() {
 }
 
 static void test_drum_ride_sound() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 51, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -186,9 +131,9 @@ static void test_drum_ride_sound() {
 static void test_drum_kick_decays() {
     // Kick has 150 ms exponential decay — voice reaches the 1e-4 isDone threshold
     // at ~1.3 s. Drain 1500 ms to confirm the voice has gone fully silent.
-    NoiseDrumRenderer r;
+    NoiseDrum r;
     r.noteOn(0, 36, 127);
-    const int drain = 44100 * 1500 / 1000;
+    const int drain = kSampleRate * 1500 / 1000;
     std::vector<float> tmp(drain, 0.0f);
     for (int i = 0; i < drain; i += 256) {
         int n = std::min(256, drain - i);
@@ -199,17 +144,17 @@ static void test_drum_kick_decays() {
     CHECK(maxAmp(tail, 256) < 1e-3f, "drum: kick is silent after 1500 ms");
 }
 
-// --- FmDrumRenderer tests ---
+// --- FmDrum tests ---
 
 static void test_fm_drum_silence_before_noteOn() {
-    FmDrumRenderer r;
+    FmDrum r;
     float buf[256] = {};
     r.render(buf, 256);
     CHECK(allZero(buf, 256), "fm drum: silence before any noteOn");
 }
 
 static void test_fm_drum_kick_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 36, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -217,7 +162,7 @@ static void test_fm_drum_kick_sound() {
 }
 
 static void test_fm_drum_snare_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 38, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -225,7 +170,7 @@ static void test_fm_drum_snare_sound() {
 }
 
 static void test_fm_drum_closed_hat_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 42, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -233,7 +178,7 @@ static void test_fm_drum_closed_hat_sound() {
 }
 
 static void test_fm_drum_open_hat_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 46, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -241,7 +186,7 @@ static void test_fm_drum_open_hat_sound() {
 }
 
 static void test_fm_drum_crash_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 49, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -249,7 +194,7 @@ static void test_fm_drum_crash_sound() {
 }
 
 static void test_fm_drum_ride_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 51, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -257,7 +202,7 @@ static void test_fm_drum_ride_sound() {
 }
 
 static void test_fm_drum_tom_sound() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 47, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -265,7 +210,7 @@ static void test_fm_drum_tom_sound() {
 }
 
 static void test_fm_drum_unknown_note_silence() {
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 99, 100); // unmapped note
     float buf[256] = {};
     r.render(buf, 256);
@@ -274,9 +219,9 @@ static void test_fm_drum_unknown_note_silence() {
 
 static void test_fm_drum_kick_decays() {
     // Kick has 180 ms env decay; voice reaches isDone threshold at ~1.6 s.
-    FmDrumRenderer r;
+    FmDrum r;
     r.noteOn(0, 36, 127);
-    const int drain = 44100 * 1800 / 1000;
+    const int drain = kSampleRate * 1800 / 1000;
     std::vector<float> tmp(drain, 0.0f);
     for (int i = 0; i < drain; i += 256) {
         int n = std::min(256, drain - i);
@@ -290,9 +235,10 @@ static void test_fm_drum_kick_decays() {
 // --- WAV output ---
 
 static void write_wav_noise_drums() {
-    NoiseDrumRenderer r;
+    NoiseDrum r;
+
     // Each drum hit at 0.5s intervals; total 4 seconds
-    const int sampleRate  = 44100;
+    const int sampleRate  = kSampleRate;
     const int totalSamples = sampleRate * 4;
     const int hitInterval  = sampleRate / 2;
     std::vector<float> out(totalSamples, 0.0f);
@@ -314,17 +260,17 @@ static void write_wav_noise_drums() {
     printf("INFO  wrote noise_drums.wav  (kick snare hat openhat crash ride tom)\n");
 }
 
-// --- PianoRenderer tests ---
+// --- Piano tests ---
 
 static void test_piano_silence_before_noteOn() {
-    PianoRenderer r;
+    Piano r;
     float buf[256] = {};
     r.render(buf, 256);
     CHECK(allZero(buf, 256), "piano: silence before any noteOn");
 }
 
 static void test_piano_sound_after_noteOn() {
-    PianoRenderer r;
+    Piano r;
     r.noteOn(0, 60, 100);
     float buf[256] = {};
     r.render(buf, 256);
@@ -333,9 +279,9 @@ static void test_piano_sound_after_noteOn() {
 
 static void test_piano_sustain_audible() {
     // Drain attack (220) + decay (3528) samples, then check sustain is still audible
-    PianoRenderer r;
+    Piano r;
     r.noteOn(0, 60, 127);
-    const int drain = PianoRenderer::kAttackSamples + PianoRenderer::kDecaySamples + 256;
+    const int drain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
     std::vector<float> tmp(drain, 0.0f);
     for (int i = 0; i < drain; i += 256) {
         int n = std::min(256, drain - i);
@@ -348,10 +294,10 @@ static void test_piano_sustain_audible() {
 
 static void test_piano_silent_after_release() {
     // Release coeff 300 ms; from sustain gain ~0.42, voice goes silent at ~2.5 s
-    PianoRenderer r;
+    Piano r;
     r.noteOn(0, 60, 127);
     // Reach sustain
-    const int toSustain = PianoRenderer::kAttackSamples + PianoRenderer::kDecaySamples + 256;
+    const int toSustain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
     std::vector<float> tmp(toSustain, 0.0f);
     for (int i = 0; i < toSustain; i += 256) {
         int n = std::min(256, toSustain - i);
@@ -359,7 +305,7 @@ static void test_piano_silent_after_release() {
     }
     // Trigger release and drain 3 seconds
     r.noteOff(0, 60);
-    const int drain = 44100 * 3;
+    const int drain = kSampleRate * 3;
     std::vector<float> rel(drain, 0.0f);
     for (int i = 0; i < drain; i += 256) {
         int n = std::min(256, drain - i);
@@ -371,7 +317,7 @@ static void test_piano_silent_after_release() {
 }
 
 static void test_piano_voice_stealing() {
-    PianoRenderer r;
+    Piano r;
     // Fill all 8 slots (notes 60–67)
     for (int n = 60; n < 68; ++n) r.noteOn(0, n, 100);
     float buf[256] = {};
@@ -388,8 +334,8 @@ static void test_piano_voice_stealing() {
 // --- WAV output ---
 
 static void write_wav_piano_chord() {
-    PianoRenderer r;
-    const int sampleRate   = 44100;
+    Piano r;
+    const int sampleRate   = kSampleRate;
     const int totalSamples = sampleRate * 2; // 2 seconds
     std::vector<float> out(totalSamples, 0.0f);
 
@@ -414,8 +360,8 @@ static void write_wav_piano_chord() {
 }
 
 static void write_wav_fm_drums() {
-    FmDrumRenderer r;
-    const int sampleRate   = 44100;
+    FmDrum r;
+    const int sampleRate   = kSampleRate;
     const int totalSamples = sampleRate * 4;
     const int hitInterval  = sampleRate / 2;
     std::vector<float> out(totalSamples, 0.0f);
@@ -438,8 +384,8 @@ static void write_wav_fm_drums() {
 
 static void write_wav_piano_sin_table() {
 
-    PianoSinTableRenderer r;
-    const int sampleRate   = 44100;
+    PianoSinTable r;
+    const int sampleRate   = kSampleRate;
     const int totalSamples = sampleRate * 2; // 2 seconds
     std::vector<float> out(totalSamples, 0.0f);
 
@@ -467,13 +413,10 @@ static void write_wav_piano_sin_table() {
 }
 
 int main() {
-    printf("=== SineTestRenderer ===\n");
-    test_silence_before_noteOn();
-    test_sound_after_noteOn();
-    test_silence_after_500ms();
-    test_second_noteOn_restarts();
+    printf("=== WaveTable ===\n");
+    write_wav_wave_table();
 
-    printf("\n=== NoiseDrumRenderer ===\n");
+    printf("\n=== NoiseDrum ===\n");
     test_drum_silence_before_noteOn();
     test_drum_kick_sound();
     test_drum_snare_sound();
@@ -483,7 +426,7 @@ int main() {
     test_drum_ride_sound();
     test_drum_kick_decays();
 
-    printf("\n=== FmDrumRenderer ===\n");
+    printf("\n=== FmDrum ===\n");
     test_fm_drum_silence_before_noteOn();
     test_fm_drum_kick_sound();
     test_fm_drum_snare_sound();
@@ -495,7 +438,7 @@ int main() {
     test_fm_drum_unknown_note_silence();
     test_fm_drum_kick_decays();
 
-    printf("\n=== PianoRenderer ===\n");
+    printf("\n=== Piano ===\n");
     test_piano_silence_before_noteOn();
     test_piano_sound_after_noteOn();
     test_piano_sustain_audible();
@@ -503,8 +446,6 @@ int main() {
     test_piano_voice_stealing();
 
     printf("\n=== WAV output ===\n");
-    write_wav_sine();
-    write_wav_poly();
     write_wav_noise_drums();
     write_wav_fm_drums();
     write_wav_piano_chord();

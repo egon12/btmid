@@ -26,7 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -118,6 +122,7 @@ fun MainScreen(
 
             SustainButton()
 
+            BenchmarkSection()
 
             if (uiState.recentEvents.isNotEmpty()) {
                 HorizontalDivider()
@@ -205,6 +210,43 @@ private fun EventLog(events: List<MidiEventUiModel>) {
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BenchmarkSection() {
+    var result by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(
+            onClick = {
+                running = true
+                result = ""
+                scope.launch(Dispatchers.Default) {
+                    val r = NativeAudioEngine.benchmarkPianos()
+                    withContext(Dispatchers.Main) {
+                        result = r
+                        running = false
+                    }
+                }
+            },
+            enabled = !running,
+        ) {
+            if (running) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            } else {
+                Text("Run Piano Benchmark")
+            }
+        }
+        if (result.isNotEmpty()) {
+            Text(
+                text = result,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
             )
         }
     }

@@ -8,11 +8,11 @@ set(ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/cpp)
 
 add_executable(renderer_test
     renderer_test.cpp
-    ${ENGINE_SRC}/SineTestRenderer.cpp
-    ${ENGINE_SRC}/renderers/NoiseDrumRenderer.cpp
-    ${ENGINE_SRC}/renderers/FmDrumRenderer.cpp
-    ${ENGINE_SRC}/renderers/PianoRenderer.cpp
-    ${ENGINE_SRC}/renderers/PianoSinTableRenderer.cpp
+    ${ENGINE_SRC}/instruments/NoiseDrum.cpp
+    ${ENGINE_SRC}/instruments/FmDrum.cpp
+    ${ENGINE_SRC}/instruments/Piano.cpp
+    ${ENGINE_SRC}/instruments/PianoSinTable.cpp
+    ${ENGINE_SRC}/instruments/WaveTable.cpp
 )
 
 target_include_directories(renderer_test PRIVATE ${ENGINE_SRC})

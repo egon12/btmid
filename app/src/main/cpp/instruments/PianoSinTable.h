@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Instrument.h"
+#include "../SpscRing.h"
 #include <atomic>
 #include <array>
 #include <cstdint>
@@ -16,6 +17,8 @@ public:
     void noteOn(int channel, int note, int velocity) override;
 
     void noteOff(int channel, int note) override;
+
+    void controlChange(int channel, int cc, int value) override;
 
     void render(float *buffer, int32_t frames) override;
 
@@ -41,16 +44,15 @@ private:
         int note;
     };
 
-    static const int kQueueCap = 32;
+    struct CcEvent {
+        int cc;
+        int value;
+    };
 
-    std::atomic<int> mOnHead = {0};
-    std::atomic<int> mOnTail = {0};
-    std::array<NoteOnEvent, kQueueCap> mOnQueue{};
-
-    std::atomic<int> mOffHead = {0};
-    std::atomic<int> mOffTail = {0};
-    std::array<NoteOffEvent, kQueueCap> mOffQueue{};
-
+    static constexpr int kQueueCap = 32; // must be power-of-2
+    SpscRing<NoteOnEvent, kQueueCap> mOnQueue;
+    SpscRing<NoteOffEvent, kQueueCap> mOffQueue;
+    SpscRing<CcEvent, kQueueCap> mCcQueue;
 
     enum Phase { Attack, Decay, Sustain, Release, Done };
 
@@ -66,6 +68,7 @@ private:
         int      envSamples {0};
         uint32_t phaseIdx[kHarmonics];   // current index into sinTable
         uint32_t phaseIncIdx[kHarmonics]; // increment per sample, in fixed-point
+        float    phasesFreq[kHarmonics];
     };
 
     std::array<Voice, kMaxVoices> mVoices{};

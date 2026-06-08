@@ -35,6 +35,8 @@ object NativeAudioEngine {
 
     fun clearOutputPort() = clearOutputPort(ptr)
 
+    external fun benchmarkPianos(): String
+
     private external fun create(): Long
     private external fun start(ptr: Long)
     private external fun stop(ptr: Long)

@@ -4,6 +4,7 @@
 #include "instruments/SampleDrum.h"
 #include "OboeEngine.h"
 #include "WifiEngine.h"
+#include "PianoBenchmark.h"
 
 #define GRAPH(ptr) reinterpret_cast<AudioGraph*>(ptr)
 
@@ -88,6 +89,12 @@ JNIEXPORT void JNICALL
 Java_org_egon12_btmid_synth_NativeAudioEngine_clearOutputPort(
         JNIEnv *, jobject, jlong ptr) {
     GRAPH(ptr)->closeMidiDevice();
+}
+
+JNIEXPORT jstring JNICALL
+Java_org_egon12_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *env, jobject) {
+    std::string result = runPianoBenchmark();
+    return env->NewStringUTF(result.c_str());
 }
 
 } // extern "C"
