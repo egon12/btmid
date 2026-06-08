@@ -183,3 +183,4 @@ else if (m.type == MidiMsgType::CC)
 - **Sostenuto pedal (CC 66)** — holds only notes already pressed at pedal-down time. More complex, not needed now.
 - **Soft pedal (CC 67)** — reduces volume. Not requested.
 - **Velocity curves for drums** — drum dynamics already feel natural with linear scaling.
+
