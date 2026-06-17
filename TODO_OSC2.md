@@ -12,9 +12,14 @@ These improvements enhance audio quality and musicality without adding significa
 
 ### Implementation
 
-In `PolyOscillator.cpp`, modify `addVoice()`:
+In `PolyOscillator.cpp`, add `#include <cstdlib>` at the top (for `std::rand`), then modify `addVoice()`:
 
 ```cpp
+#include "PolyOscillator.h"
+#include <cstdlib>   // std::rand
+
+// ...
+
 void PolyOscillator::addVoice(int note, int velocity) {
     // ... existing code ...
 
@@ -120,6 +125,7 @@ But we can skip this for V1.
 - [ ] Smooth release is already implemented? (Yes)
 - [ ] Velocity-to-attack adds expressiveness? (Optional, low priority)
 - [ ] Aliasing is acceptable for V1? (Yes, can be fixed later with PolyBLEP)
+- [ ] `EnvPhase::Done` in the header is dead code — `Release` sets `v.active = false` directly; `Done` is never transitioned to. Can be removed.
 
 ---
 

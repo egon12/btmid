@@ -40,7 +40,8 @@ private:
     static constexpr int kAttackSamples = static_cast<int>(0.005f * kSampleRate);
     static constexpr int kDecaySamples = static_cast<int>(0.080f * kSampleRate);
     static constexpr float kSustainLevel = 0.60f;
-    static constexpr float kReleaseCoeff = static_cast<float>(std::exp(-1.0 / (0.300f * kSampleRate)));
+    // not constexpr — std::exp is not constexpr in C++17/C++20; defined in .cpp
+    static const float kReleaseCoeff;
 
     enum class EnvPhase { Attack, Decay, Sustain, Release, Done };
 
@@ -87,6 +88,8 @@ private:
 
 ```cpp
 #include "PolyOscillator.h"
+
+const float PolyOscillator::kReleaseCoeff = std::exp(-1.0f / (0.300f * kSampleRate));
 
 void PolyOscillator::noteOn(int, int note, int velocity) {
     mOnQueue.push({note, velocity});
@@ -240,7 +243,33 @@ void PolyOscillator::render(float* buffer, int32_t frames) {
 
 ---
 
-## 3. Update `InstrumentRepository.cpp`
+## 3. Update `CMakeLists.txt`
+**Path**: `app/src/main/cpp/CMakeLists.txt`
+
+Add `instruments/PolyOscillator.cpp` to the `add_library` source list:
+
+```cmake
+add_library(btmid SHARED
+    MidiParser.cpp
+    ChannelEngine.cpp
+    OboeEngine.cpp
+    WifiEngine.cpp
+    InstrumentRepository.cpp
+    AudioGraph.cpp
+    instruments/Piano.cpp
+    instruments/NoiseDrum.cpp
+    instruments/FmDrum.cpp
+    instruments/SampleDrum.cpp
+    instruments/PianoSinTable.cpp
+    instruments/PolyOscillator.cpp   # <-- add this
+    PianoBenchmark.cpp
+    jni_bridge.cpp
+)
+```
+
+---
+
+## 5. Update `InstrumentRepository.cpp`
 **Path**: `app/src/main/cpp/InstrumentRepository.cpp`
 
 Add the include and register the three new variants in `getOrCreate`:
@@ -261,7 +290,7 @@ Add the include and register the three new variants in `getOrCreate`:
 
 ---
 
-## 4. Update `AudioGraph.cpp` Default
+## 6. Update `AudioGraph.cpp` Default
 **Path**: `app/src/main/cpp/AudioGraph.cpp`
 
 Change the default instrument on channel 0 from `"piano"` to `"saw_oscillator"`:
@@ -275,7 +304,7 @@ AudioGraph::AudioGraph() : mEngine(std::make_unique<OboeEngine>()) {
 
 ---
 
-## 5. Future Kotlin UI Steps (To be reviewed)
+## 7. Future Kotlin UI Steps (To be reviewed)
 Since `NativeAudioEngine.setInstrument(0, name)` already exists and works dynamically, we can add a UI toggle in `MainViewModel.kt` and `MainScreen.kt` to call it with `"sine_oscillator"`, `"saw_oscillator"`, or `"square_oscillator"` without adding new JNI methods.
 
 - Add `val activeOscillator: String = "saw_oscillator"` to `UiState`.
