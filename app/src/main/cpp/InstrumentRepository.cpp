@@ -4,6 +4,7 @@
 #include "instruments/NoiseDrum.h"
 #include "instruments/FmDrum.h"
 #include "instruments/SampleDrum.h"
+#include "instruments/PolyOscillator.h"
 
 InstrumentRepository::InstrumentRepository() = default;
 
@@ -22,6 +23,12 @@ Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
         auto sdr = std::make_unique<SampleDrum>();
         mSampleDrum = sdr.get();
         inst = std::move(sdr);
+    } else if (id == "sine_oscillator") {
+        inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Sine);
+    } else if (id == "saw_oscillator") {
+        inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Saw);
+    } else if (id == "square_oscillator") {
+        inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Square);
     }
     if (!inst) return nullptr;
 
