@@ -28,18 +28,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.egon12.btmid.AudioEngine
 import org.egon12.btmid.ConnectionStatus
 import org.egon12.btmid.DeviceUiState
 import org.egon12.btmid.DrumBackend
+import org.egon12.btmid.KeyboardSound
 import org.egon12.btmid.MidiEventUiModel
 import org.egon12.btmid.UiState
 import org.egon12.btmid.synth.NativeAudioEngine
@@ -54,6 +55,7 @@ fun MainScreen(
     onConnect: (DeviceUiState) -> Unit,
     onDisconnect: () -> Unit,
     onSetDrumBackend: (DrumBackend) -> Unit,
+    onSetKeyboardSound: (KeyboardSound) -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioEngine) -> Unit,
     modifier: Modifier = Modifier,
@@ -112,6 +114,11 @@ fun MainScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
+            )
+
+            KeyboardSoundSelector(
+                selected = uiState.keyboardSound,
+                onSelect = onSetKeyboardSound,
             )
 
             PianoKeyboard(
@@ -305,6 +312,7 @@ private fun MainScreenPermissionNeededPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
         )
@@ -334,6 +342,7 @@ private fun MainScreenConnectedPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
         )
@@ -359,6 +368,7 @@ private fun MainScreenScanningPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
+            onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
         )
