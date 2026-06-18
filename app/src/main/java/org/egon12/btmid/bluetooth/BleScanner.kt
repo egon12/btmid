@@ -1,5 +1,6 @@
 package org.egon12.btmid.bluetooth
 
+import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -8,6 +9,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import java.util.UUID
 
 private const val TAG = "BleScanner"
@@ -43,12 +45,14 @@ class BleScanner(context: Context) {
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startScan(onDeviceFound: (address: String, name: String) -> Unit) {
         this.onDeviceFound = onDeviceFound
         bluetoothLeScanner.startScan(listOf(scanFilter), scanSettings, scanCallback)
         Log.d(TAG, "Scan started")
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun stopScan() {
         bluetoothLeScanner.stopScan(scanCallback)
         onDeviceFound = null

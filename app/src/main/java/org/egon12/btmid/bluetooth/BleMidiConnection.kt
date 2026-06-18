@@ -1,5 +1,6 @@
 package org.egon12.btmid.bluetooth
 
+import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
@@ -10,6 +11,7 @@ import android.media.midi.MidiManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import org.egon12.btmid.midi.MidiRouter
 import org.egon12.btmid.synth.NativeAudioEngine
 
@@ -21,6 +23,7 @@ class BleMidiConnection(private val context: Context) {
     private var gatt: BluetoothGatt? = null
     private var midiDevice: MidiDevice? = null
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connect(
         bluetoothDevice: BluetoothDevice,
         router: MidiRouter,
@@ -28,6 +31,7 @@ class BleMidiConnection(private val context: Context) {
         onError: (String) -> Unit,
     ) {
         val gattCallback = object : BluetoothGattCallback() {
+            @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
@@ -54,6 +58,7 @@ class BleMidiConnection(private val context: Context) {
         )
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect() {
         NativeAudioEngine.clearOutputPort()
         midiDevice?.close()

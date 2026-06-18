@@ -1,8 +1,13 @@
 package org.egon12.btmid
 
+import android.Manifest.permission.BLUETOOTH_CONNECT
+import android.Manifest.permission.BLUETOOTH_SCAN
 import android.app.Application
 import android.bluetooth.BluetoothManager
+import android.content.pm.PackageManager.PERMISSION_GRANTED
+import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +26,11 @@ import org.egon12.btmid.synth.SampleBank
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
 
+enum class KeyboardSound { Piano, Sine, Saw, Square }
+
 sealed class AudioEngine {
-    object Oboe : AudioEngine();
-    data class Wifi(val host: String, val port: Int) : AudioEngine();
+    object Oboe : AudioEngine()
+    data class Wifi(val host: String, val port: Int) : AudioEngine()
 }
 
 data class DeviceUiState(val address: String, val name: String)
@@ -40,6 +47,7 @@ data class UiState(
     val samplesLoaded: Boolean = false,
     val engine: AudioEngine = AudioEngine.Oboe,
     val selectEngineDialogVisible: Boolean = false,
+    val keyboardSound: KeyboardSound = KeyboardSound.Piano,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -55,6 +63,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
     private val drumBackendStore = DrumBackendStore(application)
+    private val keyboardSoundStore: KeyboardSoundStore = KeyboardSoundStore(application)
+
 
     init {
         NativeAudioEngine.start()
@@ -65,6 +75,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val saved = drumBackendStore.drumBackend.first()
             setDrumBackend(saved)
+        }
+        viewModelScope.launch {
+            val saved = keyboardSoundStore.keyboardSound.first()
+            setKeyboardSound(saved)
         }
         viewModelScope.launch {
             midiRouter.events.collect { event ->
@@ -93,6 +107,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             connectionStatus = ConnectionStatus.Scanning,
             discoveredDevices = emptyList()
         )
+        if (checkSelfPermission(application, BLUETOOTH_SCAN) != PERMISSION_GRANTED) {
+            // TODO show error dialog
+            return
+        }
         bleScanner.startScan { address, name ->
             val current = _uiState.value.discoveredDevices
             if (current.none { it.address == address }) {
@@ -104,12 +122,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopScan() {
+        if (checkSelfPermission(application, BLUETOOTH_SCAN) != PERMISSION_GRANTED) {
+            // TODO show error dialog
+            return
+        }
         bleScanner.stopScan()
         _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Idle)
     }
 
     fun connect(device: DeviceUiState) {
         val bluetoothDevice = bluetoothAdapter.getRemoteDevice(device.address)
+        if (checkSelfPermission(application, BLUETOOTH_SCAN) != PERMISSION_GRANTED) {
+            // TODO error dialog
+            return
+        }
         bleScanner.stopScan()
         bleMidiConnection.connect(
             bluetoothDevice = bluetoothDevice,
@@ -127,7 +153,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun disconnect() {
-        bleMidiConnection.disconnect()
+        if (checkSelfPermission(application, BLUETOOTH_CONNECT) == PERMISSION_GRANTED) {
+            bleMidiConnection.disconnect()
+        }
         _uiState.value = _uiState.value.copy(
             connectionStatus = ConnectionStatus.Idle,
             connectedDeviceAddress = null,
@@ -140,10 +168,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { drumBackendStore.save(backend) }
     }
 
+    fun setKeyboardSound(sound: KeyboardSound) {
+        val ids = arrayOf(
+            "piano",
+            "sine_oscillator",
+            "saw_oscillator",
+            "square_oscillator"
+        )
+        NativeAudioEngine.setInstrument(0, ids[sound.ordinal])
+        _uiState.value = _uiState.value.copy(keyboardSound = sound)
+        viewModelScope.launch { keyboardSoundStore.save(sound) }
+    }
+
     override fun onCleared() {
         super.onCleared()
-        bleScanner.stopScan()
-        bleMidiConnection.disconnect()
+        if (checkSelfPermission(application, BLUETOOTH_SCAN) == PERMISSION_GRANTED) {
+            bleScanner.stopScan()
+            bleMidiConnection.disconnect()
+        }
         NativeAudioEngine.stop()
     }
 
