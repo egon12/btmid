@@ -145,7 +145,7 @@ fun EngineSelector(
 
                     onSelectEngine(engine)
                     showSelectEngineDialog(false)
-                }, enabled = true, modifier = Modifier.fillMaxWidth()
+                }, enabled = selectedEngine == SelectedAudioEngine.Oboe || isIpValid, modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = if (selectedEngine == SelectedAudioEngine.Oboe) "Apply Local Engine"
