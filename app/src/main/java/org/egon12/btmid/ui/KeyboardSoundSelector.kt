@@ -31,4 +31,5 @@ private val KeyboardSound.label get() = when (this) {
 	KeyboardSound.Sine      -> "Sine"
 	KeyboardSound.Saw       -> "Saw"
 	KeyboardSound.Square    -> "Square"
+	KeyboardSound.Mono      -> "Mono"
 }

@@ -18,6 +18,7 @@ add_library(btmid SHARED
 	instruments/SampleDrum.cpp
 	instruments/PianoSinTable.cpp
 	instruments/PolyOscillator.cpp
+	instruments/MonoOscillator.cpp
 	PianoBenchmark.cpp
 	jni_bridge.cpp
 )

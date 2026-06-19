@@ -5,6 +5,7 @@
 #include "instruments/FmDrum.h"
 #include "instruments/SampleDrum.h"
 #include "instruments/PolyOscillator.h"
+#include "instruments/MonoOscillator.h"
 
 InstrumentRepository::InstrumentRepository() = default;
 
@@ -29,6 +30,8 @@ Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
         inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Saw);
     } else if (id == "square_oscillator") {
         inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Square);
+    } else if (id == "mono_osc") {
+        inst = std::make_unique<MonoOscillator>(0.15f);
     }
     if (!inst) return nullptr;
 

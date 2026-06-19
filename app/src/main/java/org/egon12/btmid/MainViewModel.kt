@@ -26,7 +26,7 @@ import org.egon12.btmid.synth.SampleBank
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
 
-enum class KeyboardSound { Piano, Sine, Saw, Square }
+enum class KeyboardSound { Piano, Sine, Saw, Square, Mono }
 
 sealed class AudioEngine {
     object Oboe : AudioEngine()
@@ -173,7 +173,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             "piano",
             "sine_oscillator",
             "saw_oscillator",
-            "square_oscillator"
+            "square_oscillator",
+            "mono_osc"
         )
         NativeAudioEngine.setInstrument(0, ids[sound.ordinal])
         _uiState.value = _uiState.value.copy(keyboardSound = sound)
@@ -196,7 +197,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectEngine(engine: AudioEngine) {
         val current = _uiState.value
         val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
-        val keyIds = arrayOf("piano", "sine_oscillator", "saw_oscillator", "square_oscillator")
+        val keyIds = arrayOf("piano", "sine_oscillator", "saw_oscillator", "square_oscillator", "mono_osc")
         NativeAudioEngine.setEngine(engine)
         NativeAudioEngine.setInstrument(0, keyIds[current.keyboardSound.ordinal])
         NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
