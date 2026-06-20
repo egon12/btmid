@@ -7,9 +7,9 @@ the existing `KeyboardSoundSelector`:
 
 ```
 Row 1 — always visible:
-[ Piano ]  [ Sine ]  [ Saw ]  [ Square ]  [ Mono* ]
+[ Piano ]  [ Poly* ]  [ Mono* ]
 
-Row 2 — only when Mono* is selected:
+Row 2 — only when Poly or Mono* is selected:
 [ Sine ]  [ Saw ]  [ Square ]
 ```
 
@@ -236,7 +236,7 @@ data class UiState(
 Exact same pattern as `KeyboardSoundStore.kt`:
 
 ```kotlin
-package org.egon12.btmid
+package org.gilbertxenodike.btmid
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
@@ -379,7 +379,7 @@ fun selectEngine(engine: AudioEngine) {
 Same structure as `DrumEngineSelector.kt` and `KeyboardSoundSelector.kt`:
 
 ```kotlin
-package org.egon12.btmid.ui
+package org.gilbertxnodike.btmid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -452,7 +452,7 @@ fun MainScreen(
 
 Also add the missing import at the top of the file:
 ```kotlin
-import org.egon12.btmid.MonoWaveform
+import org.gilbertxenodike.btmid.MonoWaveform
 ```
 
 ### 10b. Add the second chip row after `KeyboardSoundSelector`
