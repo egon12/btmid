@@ -41,6 +41,7 @@ import org.gilbertxenodike.btmid.ConnectionStatus
 import org.gilbertxenodike.btmid.DeviceUiState
 import org.gilbertxenodike.btmid.DrumBackend
 import org.gilbertxenodike.btmid.KeyboardSound
+import org.gilbertxenodike.btmid.LoopState
 import org.gilbertxenodike.btmid.MidiEventUiModel
 import org.gilbertxenodike.btmid.UiState
 import org.gilbertxenodike.btmid.synth.NativeAudioEngine
@@ -58,6 +59,9 @@ fun MainScreen(
     onSetKeyboardSound: (KeyboardSound) -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioEngine) -> Unit,
+    onLoopRecord: () -> Unit,
+    onLoopStop: () -> Unit,
+    onLoopClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -103,6 +107,13 @@ fun MainScreen(
                 }
             }
 
+
+            LoopControls(
+                loopState = uiState.loopState,
+                onRecord  = onLoopRecord,
+                onStop    = onLoopStop,
+                onClear   = onLoopClear,
+            )
 
             DrumEngineSelector(
                 selected = uiState.drumBackend,
@@ -315,6 +326,9 @@ private fun MainScreenPermissionNeededPreview() {
             onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
+            onLoopRecord = {},
+            onLoopStop   = {},
+            onLoopClear  = {},
         )
     }
 }
@@ -345,6 +359,9 @@ private fun MainScreenConnectedPreview() {
             onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
+            onLoopRecord = {},
+            onLoopStop   = {},
+            onLoopClear  = {},
         )
     }
 }
@@ -371,6 +388,9 @@ private fun MainScreenScanningPreview() {
             onSetKeyboardSound = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
+            onLoopRecord = {},
+            onLoopStop   = {},
+            onLoopClear  = {},
         )
     }
 }

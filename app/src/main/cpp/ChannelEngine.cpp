@@ -50,6 +50,13 @@ void ChannelEngine::pollMidi() {
                 noteOff(m.channel, m.data1);
             else if (m.type == MidiMsgType::CC)
                 controlChange(m.channel, m.data1, m.data2);
+
+            if (m.channel == 9 &&
+                (m.type == MidiMsgType::NoteOn || m.type == MidiMsgType::NoteOff)) {
+                mLoopRecorder.onMidiEvent(
+                    static_cast<uint8_t>(m.type), m.data1, m.data2);
+            }
+
             mEventQueue.push({ m.channel, static_cast<uint8_t>(m.type),
                                m.data1, m.data2 });
         }
@@ -98,6 +105,26 @@ void ChannelEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallbac
     env->DeleteLocalRef(cls);
 
     LOGD("AMidi output port set");
+}
+
+void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
+void ChannelEngine::loopStopRecord()  { mLoopRecorder.stopRecording();  }
+void ChannelEngine::loopClear()       { mLoopRecorder.clear();          }
+int  ChannelEngine::loopState()       { return static_cast<int>(mLoopRecorder.state()); }
+
+void ChannelEngine::loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) {
+    mLoopRecorder.onUiMidiEvent(type, note, vel);
+}
+
+void ChannelEngine::advanceLoop(int32_t frames) {
+    mLoopRecorder.advance(frames, [this](uint8_t type, uint8_t note, uint8_t vel) {
+        Instrument* inst = mChannels[9].load(std::memory_order_acquire);
+        if (!inst) return;
+        if (type == 0x90 && vel > 0)
+            inst->noteOn(9, note, vel);
+        else
+            inst->noteOff(9, note);
+    });
 }
 
 void ChannelEngine::clearOutputPort() {

@@ -35,6 +35,11 @@ object NativeAudioEngine {
 
     fun clearOutputPort() = clearOutputPort(ptr)
 
+    fun loopStartRecord() = loopStartRecord(ptr)
+    fun loopStopRecord()  = loopStopRecord(ptr)
+    fun loopClear()       = loopClear(ptr)
+    fun loopState(): Int  = loopState(ptr)
+
     external fun benchmarkPianos(): String
 
     private external fun create(): Long
@@ -51,4 +56,9 @@ object NativeAudioEngine {
     private external fun setEngine(ptr: Long, engineId: Int, ip: String)
     private external fun setOutputPort(ptr: Long, device: MidiDevice, callback: MidiEventListener)
     private external fun clearOutputPort(ptr: Long)
+
+    private external fun loopStartRecord(ptr: Long)
+    private external fun loopStopRecord(ptr: Long)
+    private external fun loopClear(ptr: Long)
+    private external fun loopState(ptr: Long): Int
 }

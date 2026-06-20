@@ -27,6 +27,7 @@ enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
 
 enum class KeyboardSound { Piano, Sine, Saw, Square, Mono }
+enum class LoopState { Idle, Recording, Playing }
 
 sealed class AudioEngine {
     object Oboe : AudioEngine()
@@ -48,6 +49,8 @@ data class UiState(
     val engine: AudioEngine = AudioEngine.Oboe,
     val selectEngineDialogVisible: Boolean = false,
     val keyboardSound: KeyboardSound = KeyboardSound.Piano,
+    val loopState: LoopState = LoopState.Idle,
+    val loopLengthSec: Float = 0f,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -192,6 +195,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun showSelectEngineDialog(it: Boolean) {
         _uiState.value = _uiState.value.copy(selectEngineDialogVisible = it)
+    }
+
+    fun loopRecord() {
+        NativeAudioEngine.loopStartRecord()
+        _uiState.value = _uiState.value.copy(loopState = LoopState.Recording, loopLengthSec = 0f)
+    }
+
+    fun loopStop() {
+        NativeAudioEngine.loopStopRecord()
+        _uiState.value = _uiState.value.copy(loopState = LoopState.Playing)
+    }
+
+    fun loopClear() {
+        NativeAudioEngine.loopClear()
+        _uiState.value = _uiState.value.copy(loopState = LoopState.Idle, loopLengthSec = 0f)
     }
 
     fun selectEngine(engine: AudioEngine) {

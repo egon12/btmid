@@ -27,4 +27,10 @@ public:
 
     virtual void setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) = 0;
     virtual void clearOutputPort() = 0;
+
+    virtual void loopStartRecord() {}
+    virtual void loopStopRecord()  {}
+    virtual void loopClear()       {}
+    virtual int  loopState()       { return 0; }
+    virtual void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) {}
 };

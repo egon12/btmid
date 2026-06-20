@@ -97,6 +97,31 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *e
     return env->NewStringUTF(result.c_str());
 }
 
+
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStartRecord(
+        JNIEnv *, jobject, jlong ptr) {
+    GRAPH(ptr)->loopStartRecord();
+}
+
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStopRecord(
+        JNIEnv *, jobject, jlong ptr) {
+    GRAPH(ptr)->loopStopRecord();
+}
+
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopClear(
+        JNIEnv *, jobject, jlong ptr) {
+    GRAPH(ptr)->loopClear();
+}
+
+JNIEXPORT jint JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopState(
+        JNIEnv *, jobject, jlong ptr) {
+    return static_cast<jint>(GRAPH(ptr)->loopState());
+}
+
 } // extern "C"
 
 extern "C"

@@ -30,6 +30,12 @@ public:
     void openMidiDevice(JNIEnv* env, jobject jDevice, jobject jCallback);
     void closeMidiDevice();
 
+    void loopStartRecord();
+    void loopStopRecord();
+    void loopClear();
+    int  loopState();
+    void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel);
+
 private:
     // mRepository declared first so it outlives mEngine (reverse destruction order).
     // OboeEngine holds raw Instrument* from mRepository; engine must die first.

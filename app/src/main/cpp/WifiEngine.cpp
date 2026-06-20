@@ -81,6 +81,7 @@ void WifiEngine::udpRenderLoop() {
 
     while (mUdpRunning.load(std::memory_order_acquire)) {
         pollMidi();
+        advanceLoop(kFramesPerBuf);
 
         for (float& s : buf) s = 0.0f;
         renderChannels(buf, kFramesPerBuf);

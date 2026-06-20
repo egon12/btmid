@@ -51,7 +51,10 @@ class MainActivity : ComponentActivity() {
                         onSetKeyboardSound = { vm.setKeyboardSound(it) },
                         modifier = Modifier.padding(innerPadding),
                         showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
-                        onSelectEngine = { vm.selectEngine(it) }
+                        onSelectEngine = { vm.selectEngine(it) },
+                        onLoopRecord = { vm.loopRecord() },
+                        onLoopStop   = { vm.loopStop()   },
+                        onLoopClear  = { vm.loopClear()  }
                     )
                 }
             }
