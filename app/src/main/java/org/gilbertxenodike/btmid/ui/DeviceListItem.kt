@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,8 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.egon12.btmid.DeviceUiState
-import org.egon12.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.DeviceUiState
+import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 @Composable
 fun DeviceListItem(

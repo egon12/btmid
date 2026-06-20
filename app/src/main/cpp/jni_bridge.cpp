@@ -11,45 +11,45 @@
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_create(JNIEnv *, jobject) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_create(JNIEnv *, jobject) {
     return reinterpret_cast<jlong>(new AudioGraph());
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_start(JNIEnv *, jobject, jlong ptr) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_start(JNIEnv *, jobject, jlong ptr) {
     GRAPH(ptr)->start();
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_stop(JNIEnv *, jobject, jlong ptr) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_stop(JNIEnv *, jobject, jlong ptr) {
     GRAPH(ptr)->stop();
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_destroy(JNIEnv *, jobject, jlong ptr) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_destroy(JNIEnv *, jobject, jlong ptr) {
     delete GRAPH(ptr);
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_noteOn(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_noteOn(
         JNIEnv *, jobject, jlong ptr, jint channel, jint note, jint velocity) {
     GRAPH(ptr)->noteOn(channel, note, velocity);
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_noteOff(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_noteOff(
         JNIEnv *, jobject, jlong ptr, jint channel, jint note) {
     GRAPH(ptr)->noteOff(channel, note);
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_controlChange(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_controlChange(
         JNIEnv *, jobject, jlong ptr, jint channel, jint cc, jint value) {
     GRAPH(ptr)->controlChange(channel, cc, value);
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_setInstrument(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setInstrument(
         JNIEnv *env, jobject, jlong ptr, jint channel, jstring name) {
     const char *cname = env->GetStringUTFChars(name, nullptr);
     GRAPH(ptr)->setInstrument(channel, cname);
@@ -58,7 +58,7 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_setInstrument(
 
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_setDrumBackend(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setDrumBackend(
         JNIEnv *, jobject, jlong ptr, jint backendId) {
     static const char *ids[] = {"noise_drum", "fm_drum", "sample_drum"};
     if (backendId >= 0 && backendId < 3)
@@ -66,7 +66,7 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_setDrumBackend(
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_loadSample(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSample(
         JNIEnv *env, jobject, jlong ptr, jstring jname, jfloatArray jdata) {
     const char *name = env->GetStringUTFChars(jname, nullptr);
     int id = SampleDrum::nameToSampleId(name);
@@ -80,19 +80,19 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_loadSample(
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_setOutputPort(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setOutputPort(
         JNIEnv *env, jobject, jlong ptr, jobject jDevice, jobject jCallback) {
     GRAPH(ptr)->openMidiDevice(env, jDevice, jCallback);
 }
 
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_clearOutputPort(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_clearOutputPort(
         JNIEnv *, jobject, jlong ptr) {
     GRAPH(ptr)->closeMidiDevice();
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *env, jobject) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *env, jobject) {
     std::string result = runPianoBenchmark();
     return env->NewStringUTF(result.c_str());
 }
@@ -101,7 +101,7 @@ Java_org_egon12_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *env, jobje
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_org_egon12_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz, jlong ptr,
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz, jlong ptr,
                                                         jint engine_id, jstring ip) {
 
     if (engine_id == 1) {

@@ -1,4 +1,4 @@
-package org.egon12.btmid.bluetooth
+package org.gilbertxenodike.btmid.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothManager

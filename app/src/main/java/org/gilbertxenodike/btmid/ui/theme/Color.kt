@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui.theme
+package org.gilbertxenodike.btmid.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,4 +1,4 @@
-package org.egon12.btmid.bluetooth
+package org.gilbertxenodike.btmid.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothDevice
@@ -12,8 +12,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import org.egon12.btmid.midi.MidiRouter
-import org.egon12.btmid.synth.NativeAudioEngine
+import org.gilbertxenodike.btmid.midi.MidiRouter
+import org.gilbertxenodike.btmid.synth.NativeAudioEngine
 
 private const val TAG = "BleMidiConnection"
 

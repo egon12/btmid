@@ -1,4 +1,4 @@
-package org.egon12.btmid
+package org.gilbertxenodike.btmid
 
 import android.Manifest
 import android.os.Bundle
@@ -14,8 +14,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import org.egon12.btmid.ui.MainScreen
-import org.egon12.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.ui.MainScreen
+import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

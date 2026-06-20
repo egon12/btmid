@@ -1,4 +1,4 @@
-package org.egon12.btmid.synth
+package org.gilbertxenodike.btmid.synth
 
 import android.content.Context
 import android.media.AudioFormat

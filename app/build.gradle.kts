@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "org.egon12.btmid"
+    namespace = "org.gilbertxenodike.btmid"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -14,7 +14,7 @@ android {
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "org.egon12.btmid"
+        applicationId = "org.gilbertxenodike.btmid"
         minSdk = 36
         targetSdk = 36
         versionCode = 1

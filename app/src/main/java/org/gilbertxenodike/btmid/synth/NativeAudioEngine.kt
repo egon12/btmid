@@ -1,7 +1,7 @@
-package org.egon12.btmid.synth
+package org.gilbertxenodike.btmid.synth
 
 import android.media.midi.MidiDevice
-import org.egon12.btmid.AudioEngine
+import org.gilbertxenodike.btmid.AudioEngine
 
 object NativeAudioEngine {
     init {

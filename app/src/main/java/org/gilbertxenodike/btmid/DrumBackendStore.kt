@@ -1,4 +1,4 @@
-package org.egon12.btmid
+package org.gilbertxenodike.btmid
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit

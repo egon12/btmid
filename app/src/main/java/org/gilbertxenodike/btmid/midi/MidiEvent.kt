@@ -1,4 +1,4 @@
-package org.egon12.btmid.midi
+package org.gilbertxenodike.btmid.midi
 
 sealed class MidiEvent {
     data class NoteOn(val channel: Int, val note: Int, val velocity: Int) : MidiEvent()

@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import org.egon12.btmid.AudioEngine
+import org.gilbertxenodike.btmid.AudioEngine
 
 enum class SelectedAudioEngine { Oboe, Wifi }
 

@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,15 +36,15 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.egon12.btmid.AudioEngine
-import org.egon12.btmid.ConnectionStatus
-import org.egon12.btmid.DeviceUiState
-import org.egon12.btmid.DrumBackend
-import org.egon12.btmid.KeyboardSound
-import org.egon12.btmid.MidiEventUiModel
-import org.egon12.btmid.UiState
-import org.egon12.btmid.synth.NativeAudioEngine
-import org.egon12.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.AudioEngine
+import org.gilbertxenodike.btmid.ConnectionStatus
+import org.gilbertxenodike.btmid.DeviceUiState
+import org.gilbertxenodike.btmid.DrumBackend
+import org.gilbertxenodike.btmid.KeyboardSound
+import org.gilbertxenodike.btmid.MidiEventUiModel
+import org.gilbertxenodike.btmid.UiState
+import org.gilbertxenodike.btmid.synth.NativeAudioEngine
+import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 @Composable
 fun MainScreen(

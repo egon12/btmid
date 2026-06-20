@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +17,8 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.egon12.btmid.synth.NativeAudioEngine
-import org.egon12.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.synth.NativeAudioEngine
+import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 private val WHITE_NOTES = intArrayOf(60, 62, 64, 65, 67, 69, 71)
 

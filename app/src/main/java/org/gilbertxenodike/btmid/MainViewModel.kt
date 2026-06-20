@@ -1,4 +1,4 @@
-package org.egon12.btmid
+package org.gilbertxenodike.btmid
 
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.BLUETOOTH_SCAN
@@ -16,12 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.egon12.btmid.bluetooth.BleMidiConnection
-import org.egon12.btmid.bluetooth.BleScanner
-import org.egon12.btmid.midi.MidiEvent
-import org.egon12.btmid.midi.MidiRouter
-import org.egon12.btmid.synth.NativeAudioEngine
-import org.egon12.btmid.synth.SampleBank
+import org.gilbertxenodike.btmid.bluetooth.BleMidiConnection
+import org.gilbertxenodike.btmid.bluetooth.BleScanner
+import org.gilbertxenodike.btmid.midi.MidiEvent
+import org.gilbertxenodike.btmid.midi.MidiRouter
+import org.gilbertxenodike.btmid.synth.NativeAudioEngine
+import org.gilbertxenodike.btmid.synth.SampleBank
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }

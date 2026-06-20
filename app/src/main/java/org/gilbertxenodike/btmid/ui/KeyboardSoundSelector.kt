@@ -1,4 +1,4 @@
-package org.egon12.btmid.ui
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -7,7 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.egon12.btmid.KeyboardSound
+import org.gilbertxenodike.btmid.KeyboardSound
 
 @Composable
 fun KeyboardSoundSelector(

@@ -1,9 +1,9 @@
-package org.egon12.btmid.midi
+package org.gilbertxenodike.btmid.midi
 
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import org.egon12.btmid.synth.NativeAudioEngine
+import org.gilbertxenodike.btmid.synth.NativeAudioEngine
 
 class MidiRouter : NativeAudioEngine.MidiEventListener {
     private val _events = MutableSharedFlow<MidiEvent>(extraBufferCapacity = 64)
