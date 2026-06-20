@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew test
 
 # Run a single unit test class
-./gradlew :app:testDebugUnitTest --tests "org.egon12.btmid.ExampleUnitTest"
+./gradlew :app:testDebugUnitTest --tests "org.gilbertxenodike.btmid.ExampleUnitTest"
 
 # Run instrumented (device/emulator) tests
 ./gradlew connectedAndroidTest
@@ -42,11 +42,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-Single-module Android app (`app/`). Package root: `org.egon12.btmid`.
+Single-module Android app (`app/`). Package root: `org.gilbertxenodike.btmid`.
 
-- `app/src/main/java/org/egon12/btmid/` — Kotlin app source
+- `app/src/main/java/org/gilbertxenodike/btmid/` — Kotlin app source
 - `app/src/main/cpp/` — C++ native engine
-- `app/src/main/java/org/egon12/btmid/ui/theme/` — Compose theme (`Color.kt`, `Theme.kt`, `Type.kt`)
+- `app/src/main/java/org/gilbertxenodike/btmid/ui/theme/` — Compose theme (`Color.kt`, `Theme.kt`, `Type.kt`)
 - `app/src/test/` — JUnit unit tests
 - `app/src/androidTest/` — instrumented tests (Espresso + Compose UI test)
 
@@ -64,7 +64,7 @@ The app receives BLE MIDI and synthesizes audio in C++ via Oboe. All audio proce
 ### File Structure
 
 ```
-app/src/main/java/org/egon12/btmid/
+app/src/main/java/org/gilbertxenodike/btmid/
   bluetooth/
     BleScanner.kt            — BluetoothLeScanner filtered by MIDI service UUID
     BleMidiConnection.kt     — MidiManager.openBluetoothDevice; passes MidiDevice to NativeAudioEngine via AMidi
