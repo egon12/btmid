@@ -2,6 +2,7 @@
 #include <jni.h>
 #include <cstdint>
 #include "Instrument.h"
+#include "MidiParser.h"
 
 struct MidiEvt { uint8_t channel; uint8_t type; uint8_t data1; uint8_t data2; };
 
@@ -32,5 +33,5 @@ public:
     virtual void loopStopRecord()  {}
     virtual void loopClear()       {}
     virtual int  loopState()       { return 0; }
-    virtual void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) {}
+    virtual void loopRecordEvent(MidiMsgType type, uint8_t note, uint8_t vel) {}
 };

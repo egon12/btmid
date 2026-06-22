@@ -27,7 +27,7 @@ public:
     void loopStopRecord()  override;
     void loopClear()       override;
     int  loopState()       override;
-    void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) override;
+    void loopRecordEvent(MidiMsgType type, uint8_t note, uint8_t vel) override;
     void setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) override;
     void clearOutputPort() override;
 

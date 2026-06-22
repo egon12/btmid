@@ -33,11 +33,11 @@ void AudioGraph::loadDrumSample(int id, const float* data, int len) {
 
 void AudioGraph::noteOn(int ch, int note, int vel) {
     mEngine->noteOn(ch, note, vel);
-    if (ch == 9) mEngine->loopRecordEvent(0x90, note, vel);
+    if (ch == 9) mEngine->loopRecordEvent(MidiMsgType::NoteOn, note, vel);
 }
 void AudioGraph::noteOff(int ch, int note) {
     mEngine->noteOff(ch, note);
-    if (ch == 9) mEngine->loopRecordEvent(0x80, note, 0);
+    if (ch == 9) mEngine->loopRecordEvent(MidiMsgType::NoteOff, note, 0);
 }
 void AudioGraph::controlChange(int ch, int cc, int v) { mEngine->controlChange(ch, cc, v);    }
 
@@ -53,6 +53,3 @@ void AudioGraph::loopStartRecord() { mEngine->loopStartRecord(); }
 void AudioGraph::loopStopRecord()  { mEngine->loopStopRecord();  }
 void AudioGraph::loopClear()       { mEngine->loopClear();       }
 int  AudioGraph::loopState()       { return mEngine->loopState(); }
-void AudioGraph::loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) {
-    mEngine->loopRecordEvent(type, note, vel);
-}

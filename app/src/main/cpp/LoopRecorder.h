@@ -1,45 +1,57 @@
 #pragma once
+
 #include <atomic>
 #include <cstdint>
 #include <functional>
 #include <vector>
+#include <ctime>
 #include "SpscRing.h"
+#include "MidiParser.h"
+#include "AudioConfig.h"
 
-struct LoopEvent {
-    int32_t frameOffset;
-    uint8_t type;
-    uint8_t note;
-    uint8_t velocity;
+struct TimestampedMidiMsg {
+    int64_t timestamp;
+    MidiMsg msg;
 };
 
-struct PendingLoopEvent { uint8_t type; uint8_t note; uint8_t vel; };
+struct FrameMidiMeg {
+    int32_t frame;
+    MidiMsg msg;
+};
 
 class LoopRecorder {
 public:
-    enum class State { Idle = 0, Recording = 1, Playing = 2 };
+    enum class State {
+        Idle = 0, Recording = 1, Playing = 2, StartRecordOnPlay = 3,
+    };
 
     void startRecording();
+
     void stopRecording();
+
     void clear();
+
+    void startRecordOnPlay();
 
     State state() const { return mState.load(std::memory_order_acquire); }
 
-    void advance(int32_t frames,
-                 const std::function<void(uint8_t, uint8_t, uint8_t)>& fire);
+    void advance(int32_t frames, const std::function<void(MidiMsg)> &fire);
 
-    void onMidiEvent(uint8_t type, uint8_t note, uint8_t velocity);
-    void onUiMidiEvent(uint8_t type, uint8_t note, uint8_t vel);
+    void onMidiEvent(MidiMsg msg, int64_t timestamp);
+
+    void onUiMidiEvent(MidiMsgType type, uint8_t note, uint8_t vel);
 
 private:
-    std::atomic<State> mState       { State::Idle };
-    std::atomic<bool>  mShouldStop  { false };
-    std::atomic<bool>  mShouldClear { false };
+    std::atomic<State> mState{State::Idle};
+    int64_t mStartRecordNs;
+    int64_t mStopRecordNs;
 
-    std::vector<LoopEvent> mEvents;
-    int32_t mRecordFrame { 0 };
-    int32_t mLoopLength  { 0 };
-    int32_t mPlayFrame   { 0 };
-    size_t  mPlayIdx     { 0 };
+    std::vector<TimestampedMidiMsg> mEventsRecorded;
+    std::vector<FrameMidiMeg> mEventsPlay;
 
-    SpscRing<PendingLoopEvent, 64> mUiEventQueue;
+    int32_t mLoopLength{0};
+    int32_t current;
+    int playedIndex{0};
+
+    void map_timestamp_to_frame();
 };

@@ -6,36 +6,36 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-void ChannelEngine::setInstrument(int channel, Instrument* instrument) {
+void ChannelEngine::setInstrument(int channel, Instrument *instrument) {
     if (channel >= 0 && channel < 16)
         mChannels[channel].store(instrument, std::memory_order_release);
 }
 
 void ChannelEngine::noteOn(int channel, int note, int velocity) {
     if (channel < 0 || channel >= 16) return;
-    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOn(channel, note, velocity);
 }
 
 void ChannelEngine::noteOff(int channel, int note) {
     if (channel < 0 || channel >= 16) return;
-    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOff(channel, note);
 }
 
 void ChannelEngine::controlChange(int channel, int cc, int value) {
     if (channel < 0 || channel >= 16) return;
-    Instrument* inst = mChannels[channel].load(std::memory_order_acquire);
+    Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->controlChange(channel, cc, value);
 }
 
 void ChannelEngine::pollMidi() {
-    AMidiOutputPort* midiPort = mMidiPort.load(std::memory_order_acquire);
+    AMidiOutputPort *midiPort = mMidiPort.load(std::memory_order_acquire);
     if (!midiPort) return;
 
     uint8_t midiBuf[64];
     int32_t opcode;
-    size_t  numBytes;
+    size_t numBytes;
     int64_t timestamp;
     ssize_t n;
     while ((n = AMidiOutputPort_receive(
@@ -43,7 +43,7 @@ void ChannelEngine::pollMidi() {
         MidiMsg msgs[16];
         int count = parseMidi(midiBuf, numBytes, msgs, 16, mRunningStatus);
         for (int k = 0; k < count; ++k) {
-            const MidiMsg& m = msgs[k];
+            const MidiMsg &m = msgs[k];
             if (m.type == MidiMsgType::NoteOn)
                 noteOn(m.channel, m.data1, m.data2);
             else if (m.type == MidiMsgType::NoteOff)
@@ -51,27 +51,26 @@ void ChannelEngine::pollMidi() {
             else if (m.type == MidiMsgType::CC)
                 controlChange(m.channel, m.data1, m.data2);
 
-            if (m.channel == 9 &&
-                (m.type == MidiMsgType::NoteOn || m.type == MidiMsgType::NoteOff)) {
-                mLoopRecorder.onMidiEvent(
-                    static_cast<uint8_t>(m.type), m.data1, m.data2);
-            }
+            mLoopRecorder.onMidiEvent(m, timestamp);
 
-            mEventQueue.push({ m.channel, static_cast<uint8_t>(m.type),
-                               m.data1, m.data2 });
+            mEventQueue.push({m.channel, static_cast<uint8_t>(m.type),
+                              m.data1, m.data2});
         }
     }
 }
 
-void ChannelEngine::renderChannels(float* buf, int32_t frames) {
-    Instrument* rendered[16] {};
+void ChannelEngine::renderChannels(float *buf, int32_t frames) {
+    Instrument *rendered[16]{};
     int renderCount = 0;
-    for (auto& ch : mChannels) {
-        Instrument* inst = ch.load(std::memory_order_acquire);
+    for (auto &ch: mChannels) {
+        Instrument *inst = ch.load(std::memory_order_acquire);
         if (!inst) continue;
         bool seen = false;
         for (int j = 0; j < renderCount; ++j)
-            if (rendered[j] == inst) { seen = true; break; }
+            if (rendered[j] == inst) {
+                seen = true;
+                break;
+            }
         if (!seen) {
             rendered[renderCount++] = inst;
             inst->render(buf, frames);
@@ -79,7 +78,7 @@ void ChannelEngine::renderChannels(float* buf, int32_t frames) {
     }
 }
 
-void ChannelEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) {
+void ChannelEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
     clearOutputPort();
 
     media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
@@ -87,7 +86,7 @@ void ChannelEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallbac
         LOGE("AMidiDevice_fromJava failed: %d", status);
         return;
     }
-    AMidiOutputPort* port = nullptr;
+    AMidiOutputPort *port = nullptr;
     status = AMidiOutputPort_open(mNativeDevice, 0, &port);
     if (status != AMEDIA_OK) {
         LOGE("AMidiOutputPort_open failed: %d", status);
@@ -107,28 +106,39 @@ void ChannelEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallbac
     LOGD("AMidi output port set");
 }
 
-void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
-void ChannelEngine::loopStopRecord()  { mLoopRecorder.stopRecording();  }
-void ChannelEngine::loopClear()       { mLoopRecorder.clear();          }
-int  ChannelEngine::loopState()       { return static_cast<int>(mLoopRecorder.state()); }
+void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecordOnPlay(); }
 
-void ChannelEngine::loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel) {
+void ChannelEngine::loopStopRecord() { mLoopRecorder.stopRecording(); }
+
+void ChannelEngine::loopClear() { mLoopRecorder.clear(); }
+
+int ChannelEngine::loopState() { return static_cast<int>(mLoopRecorder.state()); }
+
+void ChannelEngine::loopRecordEvent(MidiMsgType type, uint8_t note, uint8_t vel) {
     mLoopRecorder.onUiMidiEvent(type, note, vel);
 }
 
 void ChannelEngine::advanceLoop(int32_t frames) {
-    mLoopRecorder.advance(frames, [this](uint8_t type, uint8_t note, uint8_t vel) {
-        Instrument* inst = mChannels[9].load(std::memory_order_acquire);
+    mLoopRecorder.advance(frames, [this](MidiMsg msg) {
+        Instrument *inst = mChannels[msg.channel].load(std::memory_order_acquire);
         if (!inst) return;
-        if (type == 0x90 && vel > 0)
-            inst->noteOn(9, note, vel);
-        else
-            inst->noteOff(9, note);
+
+        switch (msg.type) {
+            case MidiMsgType::NoteOff:
+                inst->noteOff(msg.channel, msg.data1);
+                break;
+            case MidiMsgType::NoteOn:
+                inst->noteOn(msg.channel, msg.data1, msg.data2);
+                break;
+            case MidiMsgType::CC:
+                inst->controlChange(msg.channel, msg.data1, msg.data2);
+                break;
+        }
     });
 }
 
 void ChannelEngine::clearOutputPort() {
-    AMidiOutputPort* port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
+    AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
     if (port) AMidiOutputPort_close(port);
     if (mNativeDevice) {
         AMidiDevice_release(mNativeDevice);
@@ -137,12 +147,12 @@ void ChannelEngine::clearOutputPort() {
     mRunningStatus = 0;
 
     if (mMidiCallback && mJvm) {
-        JNIEnv* env = nullptr;
+        JNIEnv *env = nullptr;
         mJvm->AttachCurrentThread(&env, nullptr);
         env->DeleteGlobalRef(mMidiCallback);
         mJvm->DetachCurrentThread();
         mMidiCallback = nullptr;
     }
-    mJvm           = nullptr;
+    mJvm = nullptr;
     mOnMidiEventId = nullptr;
 }
