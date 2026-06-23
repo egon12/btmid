@@ -1,101 +1,112 @@
-# MonoOscillator Waveform Selection — Detailed Plan
+# Keyboard Synth Refactor: Piano / Poly / Mono + Waveform Row
 
-## UI Layout (two-row FilterChip)
+## Goal
 
-When `Mono` is the selected keyboard sound, a second chip row appears directly below
-the existing `KeyboardSoundSelector`:
+- **3 keyboard types** in a top row: `[Piano]  [Poly]  [Mono]`
+- **3 waveforms** in a second row (only when Poly or Mono): `[Sine]  [Saw]  [Square]`
+- Combination produces 6 instrument IDs in C++:
+  `sine_polysynth`, `saw_polysynth`, `square_polysynth`,
+  `sine_monosynth`, `saw_monosynth`, `square_monosynth`
+- **Waveform normalization** so all three waveforms sound equally loud.
 
+---
+
+## Waveform Normalization
+
+Raw waveforms at peak=1 have different RMS (perceived loudness):
+
+| Waveform | Formula | RMS |
+|----------|---------|-----|
+| Sine | `sin(2π·t)` | 1/√2 ≈ 0.707 |
+| Bipolar Saw | `2t − 1` | 1/√3 ≈ 0.577 |
+| Square | `±1` | 1.0 |
+
+To normalize all to sine's RMS level (the natural reference), multiply the raw sample:
+
+```cpp
+// In processSample() / render loop, before multiplying by gain:
+static constexpr float kNormSine   = 1.000f;          // reference — no change
+static constexpr float kNormSaw    = 1.225f;           // sqrt(3/2): boost saw to match sine
+static constexpr float kNormSquare = 0.707f;           // 1/sqrt(2): attenuate square to match
 ```
-Row 1 — always visible:
-[ Piano ]  [ Poly* ]  [ Mono* ]
 
-Row 2 — only when Poly or Mono* is selected:
-[ Sine ]  [ Saw ]  [ Square ]
+The saw boost raises its per-voice peak by ×1.225; since `gain` is already capped at
+`peak × 0.7f`, the actual sample peak per voice stays ≤ 0.86 — well within range.
+
+Apply the constant as the last step before writing to the buffer:
+
+```cpp
+// PolyOscillator::processSample
+float raw = ...; // sine / saw / square formula
+return raw * normFactorForWaveform(); // multiply by kNorm* constant
 ```
 
-This mirrors the exact same pattern as `DrumEngineSelector` beneath the drum trigger —
-inline, no dialog, immediate feedback while playing.
+```cpp
+// MonoOscillator::render loop (line 129 area)
+float raw = ...; // sine / saw / square formula
+float sample = raw * kNorm* * mGain;
+```
 
 ---
 
 ## Checklist
 
-- [ ] Step 1 — C++: Add `Waveform` enum + `setWaveform()` to `MonoOscillator.h`
-- [ ] Step 2 — C++: Implement saw/square + drain waveform queue in `MonoOscillator.cpp`
-- [ ] Step 3 — C++: Register three new IDs in `InstrumentRepository.cpp`
-- [ ] Step 4 — Kotlin: Add `MonoWaveform` enum to `MainViewModel.kt`
-- [ ] Step 5 — Kotlin: Add `monoWaveform` field to `UiState`
-- [ ] Step 6 — Kotlin: Create `MonoWaveformStore.kt`
-- [ ] Step 7 — Kotlin: Wire `setMonoWaveform()` in `MainViewModel.kt`
-- [ ] Step 8 — Kotlin: Fix `setKeyboardSound()` and `selectEngine()` in `MainViewModel.kt`
-- [ ] Step 9 — UI: Create `MonoWaveformSelector.kt`
-- [ ] Step 10 — UI: Update `MainScreen.kt` to show second row and pass new callbacks
-- [ ] Step 11 — UI: Update `MainScreen.kt` previews
+### C++
+
+- [ ] Step 1 — `MonoOscillator.h`: add `Waveform` enum, constructor param, `mWaveform` member
+- [ ] Step 2 — `MonoOscillator.cpp`: add waveform branch in render loop + normalization constant
+- [ ] Step 3 — `PolyOscillator.h/.cpp`: add normalization constants; apply in `processSample()`
+- [ ] Step 4 — `InstrumentRepository.cpp`: add 6 new IDs; keep `piano`; remove old IDs
+
+### Kotlin
+
+- [ ] Step 5 — `MainViewModel.kt`: replace `KeyboardSound` enum with `KeyboardType { Piano, Poly, Mono }`
+- [ ] Step 6 — `MainViewModel.kt`: add `SynthWaveform { Sine, Saw, Square }` enum
+- [ ] Step 7 — `MainViewModel.kt`: update `UiState` — replace `keyboardSound` with `keyboardType` + `synthWaveform`
+- [ ] Step 8 — `MainViewModel.kt`: add helper `instrumentId()`, update `setKeyboardType()`, add `setWaveform()`
+- [ ] Step 9 — `KeyboardSoundStore.kt` → rename to `KeyboardTypeStore.kt`; add `WaveformStore.kt`
+- [ ] Step 10 — `MainViewModel.kt`: restore both from DataStore in `init`; update `selectEngine()`
+
+### UI
+
+- [ ] Step 11 — `KeyboardSoundSelector.kt`: update labels + entries for Piano/Poly/Mono
+- [ ] Step 12 — Create `WaveformSelector.kt` (Sine / Saw / Square chips)
+- [ ] Step 13 — `MainScreen.kt`: show `WaveformSelector` row when `keyboardType != Piano`
+- [ ] Step 14 — `MainScreen.kt`: add `onSetWaveform` parameter; update previews
+- [ ] Step 15 — `MainActivity.kt`: wire `onSetWaveform = { viewModel.setWaveform(it) }`
 
 ---
 
-## Step 1 — `MonoOscillator.h`: add `Waveform` enum, member, queue, setter
+## Step 1 — `MonoOscillator.h`: add `Waveform` enum
 
 **File:** `app/src/main/cpp/instruments/MonoOscillator.h`
 
-### 1a. Add `Waveform` enum inside the class (after the opening `{`)
+After the opening `class MonoOscillator : public Instrument {`, before `public:`, add:
 
 ```cpp
 public:
     enum class Waveform { Sine, Saw, Square };
 
     explicit MonoOscillator(float portamentoTau = 0.15f,
-                            Waveform waveform = Waveform::Sine);
+                            Waveform waveform   = Waveform::Sine);
 ```
 
-Replace the existing constructor declaration:
-```cpp
-// before
-explicit MonoOscillator(float portamentoTau = 0.15f);
-// after
-explicit MonoOscillator(float portamentoTau = 0.15f,
-                        Waveform waveform = Waveform::Sine);
-```
+Replace the existing constructor declaration (currently `explicit MonoOscillator(float portamentoTau = 0.15f)`).
 
-### 1b. Add `setWaveform()` public method (after `setPortamentoTime`)
+Add private member after `mPortamentoCoeff`:
 
 ```cpp
-    void setPortamentoTime(float tau);
-    void setWaveform(Waveform wf);      // ← add this line
-```
-
-### 1c. Add `WaveformEvent` struct alongside the other event structs (in the private section)
-
-```cpp
-    struct NoteOnEvent  { int note; int velocity; };
-    struct NoteOffEvent { int note; };
-    struct CcEvent      { int cc; int value; };
-    struct WaveformEvent { Waveform wf; };   // ← add this line
-```
-
-### 1d. Add the queue and member after the existing `SpscRing` declarations
-
-```cpp
-    SpscRing<NoteOnEvent,    kQueueCap> mOnQueue;
-    SpscRing<NoteOffEvent,   kQueueCap> mOffQueue;
-    SpscRing<CcEvent,        kQueueCap> mCcQueue;
-    SpscRing<WaveformEvent,  8>         mWfQueue;   // ← add (capacity 8 is enough)
-```
-
-And add the member after `mPortamentoCoeff`:
-
-```cpp
-    float mPortamentoCoeff{0.0f};
-    Waveform mWaveform{Waveform::Sine};   // ← add this line
+    float    mPortamentoCoeff{0.0f};
+    Waveform mWaveform{Waveform::Sine};   // ← add
 ```
 
 ---
 
-## Step 2 — `MonoOscillator.cpp`: implement saw/square + drain waveform queue
+## Step 2 — `MonoOscillator.cpp`: waveform branch + normalization
 
 **File:** `app/src/main/cpp/instruments/MonoOscillator.cpp`
 
-### 2a. Update the constructor to accept and store the waveform
+### 2a. Update constructor
 
 ```cpp
 // before
@@ -110,276 +121,260 @@ MonoOscillator::MonoOscillator(float portamentoTau, Waveform waveform)
 }
 ```
 
-### 2b. Add `setWaveform()` implementation (after `recalcPortamentoCoeff`)
+### 2b. Replace the hardcoded `sinf` line in `render()` (currently around line 129)
 
 ```cpp
-void MonoOscillator::setWaveform(Waveform wf) {
-    mWfQueue.push({wf});
-}
-```
-
-### 2c. Drain `mWfQueue` at the top of `render()` (alongside the other queues)
-
-```cpp
-void MonoOscillator::render(float* buffer, int32_t frames) {
-    NoteOnEvent onEv{};
-    while (mOnQueue.pop(onEv)) handleNoteOn(onEv.note, onEv.velocity);
-
-    NoteOffEvent offEv{};
-    while (mOffQueue.pop(offEv)) handleNoteOff(offEv.note);
-
-    CcEvent ccEv{};
-    while (mCcQueue.pop(ccEv)) {
-        if (ccEv.cc == 74) {
-            float tau = 0.005f + (static_cast<float>(ccEv.value) / 127.0f) * 0.395f;
-            setPortamentoTime(tau);
-        }
-    }
-
-    WaveformEvent wfEv{};                          // ← add these two lines
-    while (mWfQueue.pop(wfEv)) mWaveform = wfEv.wf;
-    // ...
-```
-
-### 2d. Replace the hardcoded `sinf` sample line with a waveform branch
-
-```cpp
-// before (line 129)
+// before
 float sample = std::sinf(2.0f * static_cast<float>(M_PI) * mPhaseAccum);
 
 // after
-float sample;
+static constexpr float kNormSine   = 1.000f;
+static constexpr float kNormSaw    = 1.225f;
+static constexpr float kNormSquare = 0.707f;
+
+float raw;
 switch (mWaveform) {
-    case Waveform::Sine:
-        sample = std::sinf(2.0f * static_cast<float>(M_PI) * mPhaseAccum);
-        break;
     case Waveform::Saw:
-        sample = 2.0f * mPhaseAccum - 1.0f;
+        raw = 2.0f * mPhaseAccum - 1.0f;
         break;
     case Waveform::Square:
-        sample = mPhaseAccum < 0.5f ? 1.0f : -1.0f;
+        raw = (mPhaseAccum < 0.5f) ? 1.0f : -1.0f;
         break;
-    default:
-        sample = 0.0f;
+    default: // Sine
+        raw = std::sinf(2.0f * static_cast<float>(M_PI) * mPhaseAccum);
         break;
 }
+float norm = (mWaveform == Waveform::Saw)    ? kNormSaw
+           : (mWaveform == Waveform::Square) ? kNormSquare
+           : kNormSine;
+float sample = raw * norm;
 ```
 
 ---
 
-## Step 3 — `InstrumentRepository.cpp`: register three waveform IDs
+## Step 3 — `PolyOscillator`: add normalization in `processSample()`
+
+**File:** `app/src/main/cpp/instruments/PolyOscillator.cpp`
+
+`processSample()` currently returns raw waveform values. Add normalization:
+
+```cpp
+float PolyOscillator::processSample(Voice& v) const {
+    v.phase += v.freq / kSampleRate;
+    if (v.phase >= 1.0f) v.phase -= 1.0f;
+
+    static constexpr float kNormSine   = 1.000f;
+    static constexpr float kNormSaw    = 1.225f;
+    static constexpr float kNormSquare = 0.707f;
+
+    switch (mWaveform) {
+        case Waveform::Sine:
+            return std::sinf(2.0f * static_cast<float>(M_PI) * v.phase) * kNormSine;
+        case Waveform::Saw:
+            return (2.0f * v.phase - 1.0f) * kNormSaw;
+        case Waveform::Square:
+            return ((v.phase < 0.5f) ? 1.0f : -1.0f) * kNormSquare;
+        default:
+            return 0.0f;
+    }
+}
+```
+
+No other changes to `PolyOscillator` needed.
+
+---
+
+## Step 4 — `InstrumentRepository.cpp`: new instrument IDs
 
 **File:** `app/src/main/cpp/InstrumentRepository.cpp`
 
-In `getOrCreate()`, after the existing `} else if (id == "mono_osc") {` block add:
+Replace the current poly/mono blocks:
 
 ```cpp
-    } else if (id == "mono_osc") {
-        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Sine);
-    } else if (id == "mono_osc_sine") {
-        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Sine);
-    } else if (id == "mono_osc_saw") {
-        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Saw);
-    } else if (id == "mono_osc_square") {
-        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Square);
-    }
-```
+// Remove these IDs (replaced below):
+//   "sine_oscillator", "saw_oscillator", "square_oscillator", "mono_osc"
 
-Note: keep `"mono_osc"` as an alias for Sine (used by `KeyboardSoundStore` values saved
-before this change — avoids crashes on upgrade).
+// Add:
+} else if (id == "sine_polysynth") {
+    inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Sine);
+} else if (id == "saw_polysynth") {
+    inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Saw);
+} else if (id == "square_polysynth") {
+    inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Square);
+} else if (id == "sine_monosynth") {
+    inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Sine);
+} else if (id == "saw_monosynth") {
+    inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Saw);
+} else if (id == "square_monosynth") {
+    inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Square);
+}
+// Keep "piano" unchanged.
+```
 
 ---
 
-## Step 4 — `MainViewModel.kt`: add `MonoWaveform` enum
+## Step 5 — `MainViewModel.kt`: replace `KeyboardSound` with `KeyboardType`
 
-**File:** `app/src/main/java/org/egon12/btmid/MainViewModel.kt`
-
-After the existing `DrumBackend` enum, add:
+**File:** `app/src/main/java/org/gilbertxenodike/btmid/MainViewModel.kt`
 
 ```kotlin
-enum class DrumBackend { Noise, Fm, Samples }
+// Remove:
+enum class KeyboardSound { Piano, Sine, Saw, Square, Mono }
 
-enum class MonoWaveform { Sine, Saw, Square }   // ← add this
+// Add:
+enum class KeyboardType { Piano, Poly, Mono }
 ```
 
 ---
 
-## Step 5 — `UiState`: add `monoWaveform` field
+## Step 6 — `MainViewModel.kt`: add `SynthWaveform` enum
 
-**File:** `app/src/main/java/org/egon12/btmid/MainViewModel.kt`
+```kotlin
+enum class SynthWaveform { Sine, Saw, Square }
+```
 
-In `data class UiState(...)`, add the new field after `keyboardSound`:
+---
+
+## Step 7 — `MainViewModel.kt`: update `UiState`
 
 ```kotlin
 data class UiState(
-    val permissionsGranted: Boolean = false,
-    val connectionStatus: ConnectionStatus = ConnectionStatus.Idle,
-    val discoveredDevices: List<DeviceUiState> = emptyList(),
-    val connectedDeviceAddress: String? = null,
-    val recentEvents: List<MidiEventUiModel> = emptyList(),
-    val midiActivityPulse: Boolean = false,
-    val drumBackend: DrumBackend = DrumBackend.Noise,
-    val samplesLoaded: Boolean = false,
-    val engine: AudioEngine = AudioEngine.Oboe,
-    val selectEngineDialogVisible: Boolean = false,
-    val keyboardSound: KeyboardSound = KeyboardSound.Piano,
-    val monoWaveform: MonoWaveform = MonoWaveform.Sine,   // ← add this
+    // ... existing fields ...
+    val keyboardType: KeyboardType = KeyboardType.Piano,   // replaces keyboardSound
+    val synthWaveform: SynthWaveform = SynthWaveform.Sine, // new
+    // loopState, loopLengthSec, etc. unchanged
 )
 ```
 
----
-
-## Step 6 — Create `MonoWaveformStore.kt`
-
-**New file:** `app/src/main/java/org/egon12/btmid/MonoWaveformStore.kt`
-
-Exact same pattern as `KeyboardSoundStore.kt`:
-
-```kotlin
-package org.gilbertxenodike.btmid
-
-import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
-private val MONO_WAVEFORM_KEY = stringPreferencesKey("mono_waveform")
-
-class MonoWaveformStore(private val context: Context) {
-    val monoWaveform: Flow<MonoWaveform> = context.dataStore.data
-        .map { prefs ->
-            MonoWaveform.entries.firstOrNull { it.name == prefs[MONO_WAVEFORM_KEY] }
-                ?: MonoWaveform.Sine
-        }
-
-    suspend fun save(waveform: MonoWaveform) {
-        context.dataStore.edit { prefs ->
-            prefs[MONO_WAVEFORM_KEY] = waveform.name
-        }
-    }
-}
-```
-
-`context.dataStore` is the same extension already used by `KeyboardSoundStore` —
-no new DataStore instance needed.
+Remove `val keyboardSound: KeyboardSound` entirely.
 
 ---
 
-## Step 7 — `MainViewModel.kt`: wire `setMonoWaveform()`
+## Step 8 — `MainViewModel.kt`: instrument ID helper + actions
 
-**File:** `app/src/main/java/org/egon12/btmid/MainViewModel.kt`
-
-### 7a. Declare the store (after `keyboardSoundStore`)
+### 8a. Private helper
 
 ```kotlin
-private val keyboardSoundStore: KeyboardSoundStore = KeyboardSoundStore(application)
-private val monoWaveformStore: MonoWaveformStore = MonoWaveformStore(application)   // ← add
-```
-
-### 7b. Restore from DataStore in `init` (after the `keyboardSound` restore block)
-
-```kotlin
-viewModelScope.launch {
-    val saved = keyboardSoundStore.keyboardSound.first()
-    setKeyboardSound(saved)
-}
-viewModelScope.launch {                                        // ← add this block
-    val saved = monoWaveformStore.monoWaveform.first()
-    setMonoWaveform(saved)
+private fun instrumentId(type: KeyboardType, waveform: SynthWaveform): String {
+    if (type == KeyboardType.Piano) return "piano"
+    val wavePart = waveform.name.lowercase()         // "sine" / "saw" / "square"
+    val typePart = if (type == KeyboardType.Poly) "polysynth" else "monosynth"
+    return "${wavePart}_${typePart}"                 // e.g. "saw_monosynth"
 }
 ```
 
-### 7c. Add `setMonoWaveform()` function (after `setKeyboardSound`)
+### 8b. Replace `setKeyboardSound()` with two separate functions
 
 ```kotlin
-fun setMonoWaveform(waveform: MonoWaveform) {
-    val id = when (waveform) {
-        MonoWaveform.Sine   -> "mono_osc_sine"
-        MonoWaveform.Saw    -> "mono_osc_saw"
-        MonoWaveform.Square -> "mono_osc_square"
-    }
-    if (_uiState.value.keyboardSound == KeyboardSound.Mono) {
-        NativeAudioEngine.setInstrument(0, id)
-    }
-    _uiState.value = _uiState.value.copy(monoWaveform = waveform)
-    viewModelScope.launch { monoWaveformStore.save(waveform) }
-}
-```
-
-The `if keyboardSound == Mono` guard means switching waveform while Piano/Sine/etc. is
-active doesn't disrupt the active instrument; the correct ID is picked when the user
-switches back to Mono (see Step 8).
-
----
-
-## Step 8 — `MainViewModel.kt`: fix `setKeyboardSound()` and `selectEngine()`
-
-**File:** `app/src/main/java/org/egon12/btmid/MainViewModel.kt`
-
-### 8a. Helper to map current waveform to mono instrument ID
-
-Add a private helper near the top of the class body:
-
-```kotlin
-private fun monoInstrumentId(): String = when (_uiState.value.monoWaveform) {
-    MonoWaveform.Sine   -> "mono_osc_sine"
-    MonoWaveform.Saw    -> "mono_osc_saw"
-    MonoWaveform.Square -> "mono_osc_square"
-}
-```
-
-### 8b. Update `setKeyboardSound()` to use the helper for Mono
-
-```kotlin
-fun setKeyboardSound(sound: KeyboardSound) {
-    val id = when (sound) {
-        KeyboardSound.Piano  -> "piano"
-        KeyboardSound.Sine   -> "sine_oscillator"
-        KeyboardSound.Saw    -> "saw_oscillator"
-        KeyboardSound.Square -> "square_oscillator"
-        KeyboardSound.Mono   -> monoInstrumentId()   // ← was always "mono_osc"
-    }
+fun setKeyboardType(type: KeyboardType) {
+    val id = instrumentId(type, _uiState.value.synthWaveform)
     NativeAudioEngine.setInstrument(0, id)
-    _uiState.value = _uiState.value.copy(keyboardSound = sound)
-    viewModelScope.launch { keyboardSoundStore.save(sound) }
+    _uiState.value = _uiState.value.copy(keyboardType = type)
+    viewModelScope.launch { keyboardTypeStore.save(type) }
+}
+
+fun setWaveform(waveform: SynthWaveform) {
+    val id = instrumentId(_uiState.value.keyboardType, waveform)
+    NativeAudioEngine.setInstrument(0, id)
+    _uiState.value = _uiState.value.copy(synthWaveform = waveform)
+    viewModelScope.launch { waveformStore.save(waveform) }
 }
 ```
 
-Delete the old `val ids = arrayOf(...)` array approach — it is replaced by the `when`
-expression above which is explicit and safe to extend.
-
-### 8c. Update `selectEngine()` the same way
+### 8c. Update `selectEngine()` to use the helper
 
 ```kotlin
 fun selectEngine(engine: AudioEngine) {
     val current = _uiState.value
-    val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
-    val keyId = when (current.keyboardSound) {
-        KeyboardSound.Piano  -> "piano"
-        KeyboardSound.Sine   -> "sine_oscillator"
-        KeyboardSound.Saw    -> "saw_oscillator"
-        KeyboardSound.Square -> "square_oscillator"
-        KeyboardSound.Mono   -> monoInstrumentId()
-    }
+    val keyId = instrumentId(current.keyboardType, current.synthWaveform)
     NativeAudioEngine.setEngine(engine)
     NativeAudioEngine.setInstrument(0, keyId)
-    NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
-    NativeAudioEngine.start()
-    _uiState.value = current.copy(engine = engine)
+    // ... rest unchanged
 }
 ```
 
 ---
 
-## Step 9 — Create `MonoWaveformSelector.kt`
+## Step 9 — DataStore: rename `KeyboardSoundStore` → `KeyboardTypeStore`; add `WaveformStore`
 
-**New file:** `app/src/main/java/org/egon12/btmid/ui/MonoWaveformSelector.kt`
+**Rename file:** `KeyboardSoundStore.kt` → `KeyboardTypeStore.kt`
 
-Same structure as `DrumEngineSelector.kt` and `KeyboardSoundSelector.kt`:
+Update internals:
+```kotlin
+private val KEY = stringPreferencesKey("keyboard_type")   // was "keyboard_sound"
+
+class KeyboardTypeStore(private val context: Context) {
+    val keyboardType: Flow<KeyboardType> = context.dataStore.data.map { prefs ->
+        KeyboardType.entries.firstOrNull { it.name == prefs[KEY] } ?: KeyboardType.Piano
+    }
+    suspend fun save(type: KeyboardType) {
+        context.dataStore.edit { it[KEY] = type.name }
+    }
+}
+```
+
+**New file:** `WaveformStore.kt` — same pattern:
 
 ```kotlin
-package org.gilbertxnodike.btmid.ui
+private val KEY = stringPreferencesKey("synth_waveform")
+
+class WaveformStore(private val context: Context) {
+    val waveform: Flow<SynthWaveform> = context.dataStore.data.map { prefs ->
+        SynthWaveform.entries.firstOrNull { it.name == prefs[KEY] } ?: SynthWaveform.Sine
+    }
+    suspend fun save(waveform: SynthWaveform) {
+        context.dataStore.edit { it[KEY] = waveform.name }
+    }
+}
+```
+
+---
+
+## Step 10 — `MainViewModel.kt`: restore from DataStore in `init`
+
+```kotlin
+private val keyboardTypeStore = KeyboardTypeStore(application)
+private val waveformStore     = WaveformStore(application)
+
+init {
+    // ... existing drum + sample init ...
+    viewModelScope.launch {
+        val savedType = keyboardTypeStore.keyboardType.first()
+        val savedWave = waveformStore.waveform.first()
+        // Apply both before emitting any state update
+        val id = instrumentId(savedType, savedWave)
+        NativeAudioEngine.setInstrument(0, id)
+        _uiState.value = _uiState.value.copy(keyboardType = savedType, synthWaveform = savedWave)
+    }
+}
+```
+
+---
+
+## Step 11 — `KeyboardSoundSelector.kt`: update for Piano / Poly / Mono
+
+**File:** `app/src/main/java/org/gilbertxenodike/btmid/ui/KeyboardSoundSelector.kt`
+
+Change the import and enum reference from `KeyboardSound` → `KeyboardType`. Update labels:
+
+```kotlin
+private val KeyboardType.label get() = when (this) {
+    KeyboardType.Piano -> "Piano"
+    KeyboardType.Poly  -> "Poly"
+    KeyboardType.Mono  -> "Mono"
+}
+```
+
+Rename the composable parameter type and the `@Preview` accordingly.
+
+---
+
+## Step 12 — Create `WaveformSelector.kt`
+
+**New file:** `app/src/main/java/org/gilbertxenodike/btmid/ui/WaveformSelector.kt`
+
+```kotlin
+package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -389,75 +384,46 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import org.egon12.btmid.MonoWaveform
-import org.egon12.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.SynthWaveform
+import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 @Composable
-fun MonoWaveformSelector(
-    selected: MonoWaveform,
-    onSelect: (MonoWaveform) -> Unit,
+fun WaveformSelector(
+    selected: SynthWaveform,
+    onSelect: (SynthWaveform) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        MonoWaveform.entries.forEach { waveform ->
+        SynthWaveform.entries.forEach { waveform ->
             FilterChip(
                 selected = waveform == selected,
-                onClick = { onSelect(waveform) },
-                label = { Text(waveform.label) },
+                onClick  = { onSelect(waveform) },
+                label    = { Text(waveform.label) },
             )
         }
     }
 }
 
-private val MonoWaveform.label get() = when (this) {
-    MonoWaveform.Sine   -> "Sine"
-    MonoWaveform.Saw    -> "Saw"
-    MonoWaveform.Square -> "Square"
+private val SynthWaveform.label get() = when (this) {
+    SynthWaveform.Sine   -> "Sine"
+    SynthWaveform.Saw    -> "Saw"
+    SynthWaveform.Square -> "Square"
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun MonoWaveformSelectorPreview() {
-    BtmidTheme {
-        MonoWaveformSelector(selected = MonoWaveform.Saw, onSelect = {})
-    }
+private fun WaveformSelectorPreview() {
+    BtmidTheme { WaveformSelector(selected = SynthWaveform.Saw, onSelect = {}) }
 }
 ```
 
 ---
 
-## Step 10 — `MainScreen.kt`: add second row and new callback
+## Step 13 — `MainScreen.kt`: show `WaveformSelector` below keyboard type row
 
-**File:** `app/src/main/java/org/egon12/btmid/ui/MainScreen.kt`
+**File:** `app/src/main/java/org/gilbertxenodike/btmid/ui/MainScreen.kt`
 
-### 10a. Add `onSetMonoWaveform` parameter to `MainScreen`
-
-```kotlin
-@Composable
-fun MainScreen(
-    uiState: UiState,
-    onGrantPermissions: () -> Unit,
-    onStartScan: () -> Unit,
-    onStopScan: () -> Unit,
-    onConnect: (DeviceUiState) -> Unit,
-    onDisconnect: () -> Unit,
-    onSetDrumBackend: (DrumBackend) -> Unit,
-    onSetKeyboardSound: (KeyboardSound) -> Unit,
-    onSetMonoWaveform: (MonoWaveform) -> Unit,   // ← add this
-    showSelectEngineDialog: (Boolean) -> Unit,
-    onSelectEngine: (AudioEngine) -> Unit,
-    modifier: Modifier = Modifier,
-)
-```
-
-Also add the missing import at the top of the file:
-```kotlin
-import org.gilbertxenodike.btmid.MonoWaveform
-```
-
-### 10b. Add the second chip row after `KeyboardSoundSelector`
-
-Replace the current block (lines 119–122):
+Find the `KeyboardSoundSelector` call and replace the block:
 
 ```kotlin
 // before
@@ -467,76 +433,64 @@ KeyboardSoundSelector(
 )
 
 // after
-KeyboardSoundSelector(
-    selected = uiState.keyboardSound,
-    onSelect = onSetKeyboardSound,
+KeyboardSoundSelector(          // now shows Piano / Poly / Mono
+    selected = uiState.keyboardType,
+    onSelect = onSetKeyboardType,
 )
-if (uiState.keyboardSound == KeyboardSound.Mono) {
-    MonoWaveformSelector(
-        selected = uiState.monoWaveform,
-        onSelect = onSetMonoWaveform,
+if (uiState.keyboardType != KeyboardType.Piano) {
+    WaveformSelector(
+        selected = uiState.synthWaveform,
+        onSelect = onSetWaveform,
     )
 }
 ```
 
 ---
 
-## Step 11 — `MainScreen.kt`: update the three `@Preview` composables
+## Step 14 — `MainScreen.kt`: update parameters + previews
 
-All three previews at the bottom of `MainScreen.kt` call `MainScreen(...)` without
-`onSetMonoWaveform`. Add the argument to each:
+Replace the `onSetKeyboardSound: (KeyboardSound)` parameter with:
 
 ```kotlin
-onSetMonoWaveform = {},
+onSetKeyboardType: (KeyboardType) -> Unit,
+onSetWaveform:     (SynthWaveform) -> Unit,
 ```
 
-Example for `MainScreenConnectedPreview`:
+Update every `@Preview` call to pass:
+```kotlin
+onSetKeyboardType = {},
+onSetWaveform     = {},
+```
+
+And update the `UiState` inside each preview to use `keyboardType` / `synthWaveform` instead of `keyboardSound`.
+
+---
+
+## Step 15 — `MainActivity.kt`: wire new callbacks
+
+In the `MainScreen(...)` call inside `setContent { ... }`, replace:
 
 ```kotlin
-MainScreen(
-    uiState = UiState(
-        permissionsGranted = true,
-        connectionStatus = ConnectionStatus.Connected,
-        // ... existing fields ...
-        keyboardSound = KeyboardSound.Mono,       // ← set to Mono so row 2 is visible
-        monoWaveform = MonoWaveform.Saw,           // ← show non-default for visibility
-    ),
-    onGrantPermissions = {},
-    onStartScan = {},
-    onStopScan = {},
-    onConnect = {},
-    onDisconnect = {},
-    onSetDrumBackend = {},
-    onSetKeyboardSound = {},
-    onSetMonoWaveform = {},                        // ← add
-    showSelectEngineDialog = {},
-    onSelectEngine = {},
-)
+// Remove:
+onSetKeyboardSound = { viewModel.setKeyboardSound(it) },
+
+// Add:
+onSetKeyboardType = { viewModel.setKeyboardType(it) },
+onSetWaveform     = { viewModel.setWaveform(it)     },
 ```
 
 ---
 
-## Step 12 — Wire `onSetMonoWaveform` in `MainActivity.kt`
+## Test Plan
 
-**File:** `app/src/main/java/org/egon12/btmid/MainActivity.kt`
-
-Find where `MainScreen(...)` is called (inside `setContent { ... }`). Add:
-
-```kotlin
-onSetMonoWaveform = { viewModel.setMonoWaveform(it) },
-```
-
----
-
-## Test plan
-
-1. Build and install: `./gradlew assembleDebug`
-2. Open app → tap `[ Mono ]` chip → confirm second row `[ Sine ] [ Saw ] [ Square ]` appears
-3. Play piano keys → confirm sound is audible sine
-4. Tap `[ Saw ]` → play keys → confirm buzzier timbre
-5. Tap `[ Square ]` → play keys → confirm hollow timbre
-6. Tap `[ Piano ]` chip → confirm second row disappears
-7. Tap `[ Mono ]` again → confirm waveform row reappears, previous selection retained
-8. Force-close app and reopen → confirm Mono waveform choice is restored (DataStore)
-9. Switch engine (Oboe ↔ Wifi) while Mono + Saw is active → confirm correct instrument ID
-   is re-registered after the engine swap
+1. `./gradlew assembleDebug` — clean build
+2. Open app → confirm top row shows `[Piano] [Poly] [Mono]`; no second row visible
+3. Tap `[Poly]` → confirm `[Sine] [Saw] [Square]` row appears
+4. Play keyboard → confirm polyphonic Sine sound
+5. Tap `[Saw]` → confirm buzzier timbre at **same perceived volume** as Sine
+6. Tap `[Square]` → confirm hollow timbre at **same perceived volume** (not louder)
+7. Tap `[Mono]` → confirm second row stays; sound switches to monophonic with portamento glide
+8. Try each waveform with Mono → confirm Saw and Square glide correctly
+9. Tap `[Piano]` → confirm second row disappears; piano sounds
+10. Force-close and reopen → confirm keyboard type and waveform are restored
+11. Switch engine (Oboe ↔ Wifi) with `Mono + Saw` active → confirm correct instrument after swap
