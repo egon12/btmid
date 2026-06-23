@@ -7,7 +7,13 @@
 #include "instruments/PolyOscillator.h"
 #include "instruments/MonoOscillator.h"
 
-InstrumentRepository::InstrumentRepository() = default;
+InstrumentRepository::InstrumentRepository() {
+    // Create SampleDrum eagerly so loadDrumSample() always has a target, regardless
+    // of whether samples finish loading before or after setInstrument("sample_drum").
+    auto sdr = std::make_unique<SampleDrum>();
+    mSampleDrum = sdr.get();
+    mInstruments["sample_drum"] = std::move(sdr);
+}
 
 Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
     auto it = mInstruments.find(id);
