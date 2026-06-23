@@ -8,7 +8,10 @@
 
 class MonoOscillator : public Instrument {
 public:
-    explicit MonoOscillator(float portamentoTau = 0.15f);
+    enum class Waveform { Sine, Saw, Square };
+
+    explicit MonoOscillator(float portamentoTau = 0.15f,
+                            Waveform waveform   = Waveform::Sine);
 
     void noteOn(int channel, int note, int velocity) override;
     void noteOff(int channel, int note) override;
@@ -44,6 +47,7 @@ private:
     float mTargetFreq{0.0f};
     float mPhaseAccum{0.0f};
     float mPortamentoCoeff{0.0f};
+    Waveform mWaveform{Waveform::Sine};
 
     void handleNoteOn(int note, int velocity);
     void handleNoteOff(int note);

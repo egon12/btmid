@@ -30,14 +30,18 @@ Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
         auto sdr = std::make_unique<SampleDrum>();
         mSampleDrum = sdr.get();
         inst = std::move(sdr);
-    } else if (id == "sine_oscillator") {
+    } else if (id == "sine_polysynth") {
         inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Sine);
-    } else if (id == "saw_oscillator") {
+    } else if (id == "saw_polysynth") {
         inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Saw);
-    } else if (id == "square_oscillator") {
+    } else if (id == "square_polysynth") {
         inst = std::make_unique<PolyOscillator>(PolyOscillator::Waveform::Square);
-    } else if (id == "mono_osc") {
-        inst = std::make_unique<MonoOscillator>(0.15f);
+    } else if (id == "sine_monosynth") {
+        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Sine);
+    } else if (id == "saw_monosynth") {
+        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Saw);
+    } else if (id == "square_monosynth") {
+        inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Square);
     }
     if (!inst) return nullptr;
 

@@ -3,7 +3,8 @@
 const float MonoOscillator::kReleaseCoeff =
         std::exp(-1.0f / (kReleaseTime * kSampleRate));
 
-MonoOscillator::MonoOscillator(float portamentoTau) {
+MonoOscillator::MonoOscillator(float portamentoTau, Waveform waveform)
+    : mWaveform(waveform) {
     recalcPortamentoCoeff(portamentoTau);
 }
 
@@ -85,6 +86,13 @@ void MonoOscillator::render(float* buffer, int32_t frames) {
 
     if (mPhase == EnvPhase::Idle) return;
 
+    static constexpr float kNormSine   = 1.000f;
+    static constexpr float kNormSaw    = 1.225f;
+    static constexpr float kNormSquare = 0.707f;
+    float norm = (mWaveform == Waveform::Saw)    ? kNormSaw
+               : (mWaveform == Waveform::Square) ? kNormSquare
+               : kNormSine;
+
     for (int32_t i = 0; i < frames; ++i) {
         switch (mPhase) {
             case EnvPhase::Attack:
@@ -126,7 +134,18 @@ void MonoOscillator::render(float* buffer, int32_t frames) {
 
         mCurrentFreq = mTargetFreq + (mCurrentFreq - mTargetFreq) * mPortamentoCoeff;
 
-        float sample = std::sinf(2.0f * static_cast<float>(M_PI) * mPhaseAccum);
-        buffer[i] += mGain * sample;
+        float raw;
+        switch (mWaveform) {
+            case Waveform::Saw:
+                raw = 2.0f * mPhaseAccum - 1.0f;
+                break;
+            case Waveform::Square:
+                raw = (mPhaseAccum < 0.5f) ? 1.0f : -1.0f;
+                break;
+            default:
+                raw = std::sinf(2.0f * static_cast<float>(M_PI) * mPhaseAccum);
+                break;
+        }
+        buffer[i] += mGain * raw * norm;
     }
 }

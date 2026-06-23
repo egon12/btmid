@@ -26,7 +26,8 @@ import org.gilbertxenodike.btmid.synth.SampleBank
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
 
-enum class KeyboardSound { Piano, Sine, Saw, Square, Mono }
+enum class KeyboardType { Piano, Poly, Mono }
+enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing }
 
 sealed class AudioEngine {
@@ -48,7 +49,8 @@ data class UiState(
     val samplesLoaded: Boolean = false,
     val engine: AudioEngine = AudioEngine.Oboe,
     val selectEngineDialogVisible: Boolean = false,
-    val keyboardSound: KeyboardSound = KeyboardSound.Piano,
+    val keyboardType: KeyboardType = KeyboardType.Piano,
+    val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
     val loopLengthSec: Float = 0f,
 )
@@ -66,7 +68,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
     private val drumBackendStore = DrumBackendStore(application)
-    private val keyboardSoundStore: KeyboardSoundStore = KeyboardSoundStore(application)
+    private val keyboardTypeStore = KeyboardTypeStore(application)
+    private val waveformStore     = WaveformStore(application)
 
 
     init {
@@ -80,8 +83,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             setDrumBackend(saved)
         }
         viewModelScope.launch {
-            val saved = keyboardSoundStore.keyboardSound.first()
-            setKeyboardSound(saved)
+            val savedType = keyboardTypeStore.keyboardType.first()
+            val savedWave = waveformStore.waveform.first()
+            val id = instrumentId(savedType, savedWave)
+            NativeAudioEngine.setInstrument(0, id)
+            _uiState.value = _uiState.value.copy(keyboardType = savedType, synthWaveform = savedWave)
         }
         viewModelScope.launch {
             midiRouter.events.collect { event ->
@@ -165,23 +171,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    private fun instrumentId(type: KeyboardType, waveform: SynthWaveform): String {
+        if (type == KeyboardType.Piano) return "piano"
+        val wavePart = waveform.name.lowercase()
+        val typePart = if (type == KeyboardType.Poly) "polysynth" else "monosynth"
+        return "${wavePart}_${typePart}"
+    }
+
     fun setDrumBackend(backend: DrumBackend) {
         NativeAudioEngine.setDrumBackend(backend.ordinal)
         _uiState.value = _uiState.value.copy(drumBackend = backend)
         viewModelScope.launch { drumBackendStore.save(backend) }
     }
 
-    fun setKeyboardSound(sound: KeyboardSound) {
-        val ids = arrayOf(
-            "piano",
-            "sine_oscillator",
-            "saw_oscillator",
-            "square_oscillator",
-            "mono_osc"
-        )
-        NativeAudioEngine.setInstrument(0, ids[sound.ordinal])
-        _uiState.value = _uiState.value.copy(keyboardSound = sound)
-        viewModelScope.launch { keyboardSoundStore.save(sound) }
+    fun setKeyboardType(type: KeyboardType) {
+        val id = instrumentId(type, _uiState.value.synthWaveform)
+        NativeAudioEngine.setInstrument(0, id)
+        _uiState.value = _uiState.value.copy(keyboardType = type)
+        viewModelScope.launch { keyboardTypeStore.save(type) }
+    }
+
+    fun setWaveform(waveform: SynthWaveform) {
+        val id = instrumentId(_uiState.value.keyboardType, waveform)
+        NativeAudioEngine.setInstrument(0, id)
+        _uiState.value = _uiState.value.copy(synthWaveform = waveform)
+        viewModelScope.launch { waveformStore.save(waveform) }
     }
 
     override fun onCleared() {
@@ -215,9 +229,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectEngine(engine: AudioEngine) {
         val current = _uiState.value
         val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
-        val keyIds = arrayOf("piano", "sine_oscillator", "saw_oscillator", "square_oscillator", "mono_osc")
         NativeAudioEngine.setEngine(engine)
-        NativeAudioEngine.setInstrument(0, keyIds[current.keyboardSound.ordinal])
+        NativeAudioEngine.setInstrument(0, instrumentId(current.keyboardType, current.synthWaveform))
         NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
         NativeAudioEngine.start()
         _uiState.value = current.copy(engine = engine)

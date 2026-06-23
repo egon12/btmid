@@ -40,7 +40,8 @@ import org.gilbertxenodike.btmid.AudioEngine
 import org.gilbertxenodike.btmid.ConnectionStatus
 import org.gilbertxenodike.btmid.DeviceUiState
 import org.gilbertxenodike.btmid.DrumBackend
-import org.gilbertxenodike.btmid.KeyboardSound
+import org.gilbertxenodike.btmid.KeyboardType
+import org.gilbertxenodike.btmid.SynthWaveform
 import org.gilbertxenodike.btmid.LoopState
 import org.gilbertxenodike.btmid.MidiEventUiModel
 import org.gilbertxenodike.btmid.UiState
@@ -56,7 +57,8 @@ fun MainScreen(
     onConnect: (DeviceUiState) -> Unit,
     onDisconnect: () -> Unit,
     onSetDrumBackend: (DrumBackend) -> Unit,
-    onSetKeyboardSound: (KeyboardSound) -> Unit,
+    onSetKeyboardType: (KeyboardType) -> Unit,
+    onSetWaveform: (SynthWaveform) -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioEngine) -> Unit,
     onLoopRecord: () -> Unit,
@@ -128,9 +130,15 @@ fun MainScreen(
             )
 
             KeyboardSoundSelector(
-                selected = uiState.keyboardSound,
-                onSelect = onSetKeyboardSound,
+                selected = uiState.keyboardType,
+                onSelect = onSetKeyboardType,
             )
+            if (uiState.keyboardType != KeyboardType.Piano) {
+                WaveformSelector(
+                    selected = uiState.synthWaveform,
+                    onSelect = onSetWaveform,
+                )
+            }
 
             PianoKeyboard(
                 modifier = Modifier
@@ -323,7 +331,8 @@ private fun MainScreenPermissionNeededPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
-            onSetKeyboardSound = {},
+            onSetKeyboardType = {},
+            onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopRecord = {},
@@ -356,7 +365,8 @@ private fun MainScreenConnectedPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
-            onSetKeyboardSound = {},
+            onSetKeyboardType = {},
+            onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopRecord = {},
@@ -385,7 +395,8 @@ private fun MainScreenScanningPreview() {
             onConnect = {},
             onDisconnect = {},
             onSetDrumBackend = {},
-            onSetKeyboardSound = {},
+            onSetKeyboardType = {},
+            onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopRecord = {},

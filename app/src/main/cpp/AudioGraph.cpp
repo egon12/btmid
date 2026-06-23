@@ -2,7 +2,7 @@
 #include "OboeEngine.h"
 
 AudioGraph::AudioGraph() : mEngine(std::make_unique<OboeEngine>()) {
-    mRepository.setInstrument(*mEngine, 0, "mono_osc");
+    mRepository.setInstrument(*mEngine, 0, "piano");
     mRepository.setInstrument(*mEngine, 9, "noise_drum");
 }
 

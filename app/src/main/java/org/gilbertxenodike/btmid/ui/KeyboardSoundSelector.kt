@@ -7,29 +7,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.gilbertxenodike.btmid.KeyboardSound
+import org.gilbertxenodike.btmid.KeyboardType
 
 @Composable
 fun KeyboardSoundSelector(
-	selected: KeyboardSound,
-	onSelect: (KeyboardSound) -> Unit,
-	modifier: Modifier = Modifier,
+    selected: KeyboardType,
+    onSelect: (KeyboardType) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-	Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-		KeyboardSound.entries.forEach { sound ->
-			FilterChip(
-				selected = sound == selected,
-				onClick = { onSelect(sound) },
-				label = { Text(sound.label) },
-			)
-		}
-	}
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        KeyboardType.entries.forEach { type ->
+            FilterChip(
+                selected = type == selected,
+                onClick = { onSelect(type) },
+                label = { Text(type.label) },
+            )
+        }
+    }
 }
 
-private val KeyboardSound.label get() = when (this) {
-	KeyboardSound.Piano     -> "Piano"
-	KeyboardSound.Sine      -> "Sine"
-	KeyboardSound.Saw       -> "Saw"
-	KeyboardSound.Square    -> "Square"
-	KeyboardSound.Mono      -> "Mono"
+private val KeyboardType.label get() = when (this) {
+    KeyboardType.Piano -> "Piano"
+    KeyboardType.Poly  -> "Poly"
+    KeyboardType.Mono  -> "Mono"
 }

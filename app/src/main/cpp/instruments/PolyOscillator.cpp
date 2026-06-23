@@ -80,13 +80,17 @@ float PolyOscillator::processSample(Voice& v) const {
     v.phase += v.freq / kSampleRate;
     if (v.phase >= 1.0f) v.phase -= 1.0f;
 
+    static constexpr float kNormSine   = 1.000f;
+    static constexpr float kNormSaw    = 1.225f;
+    static constexpr float kNormSquare = 0.707f;
+
     switch (mWaveform) {
         case Waveform::Sine:
-            return std::sinf(2.0f * static_cast<float>(M_PI) * v.phase);
+            return std::sinf(2.0f * static_cast<float>(M_PI) * v.phase) * kNormSine;
         case Waveform::Saw:
-            return 2.0f * v.phase - 1.0f;
+            return (2.0f * v.phase - 1.0f) * kNormSaw;
         case Waveform::Square:
-            return (v.phase < 0.5f) ? 1.0f : -1.0f;
+            return ((v.phase < 0.5f) ? 1.0f : -1.0f) * kNormSquare;
     }
     return 0.0f;
 }
