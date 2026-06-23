@@ -148,9 +148,10 @@ void ChannelEngine::clearOutputPort() {
 
     if (mMidiCallback && mJvm) {
         JNIEnv *env = nullptr;
-        mJvm->AttachCurrentThread(&env, nullptr);
-        env->DeleteGlobalRef(mMidiCallback);
-        mJvm->DetachCurrentThread();
+        bool attached = mJvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_EDETACHED;
+        if (attached) mJvm->AttachCurrentThread(&env, nullptr);
+        if (env) env->DeleteGlobalRef(mMidiCallback);
+        if (attached) mJvm->DetachCurrentThread();
         mMidiCallback = nullptr;
     }
     mJvm = nullptr;
