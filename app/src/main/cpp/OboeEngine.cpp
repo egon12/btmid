@@ -67,10 +67,17 @@ void OboeEngine::dispatchLoop() {
         bool    any = false;
         while (mEventQueue.pop(evt)) {
             any = true;
-            if (env && mMidiCallback && mOnMidiEventId) {
-                env->CallVoidMethod(mMidiCallback, mOnMidiEventId,
-                                   (jint)evt.channel, (jint)evt.type,
-                                   (jint)evt.data1,   (jint)evt.data2);
+            if (evt.channel == 0xFF) {
+                if (env && mMidiCallback && mOnLoopStateId) {
+                    env->CallVoidMethod(mMidiCallback, mOnLoopStateId,
+                                       (jint)evt.type);
+                }
+            } else {
+                if (env && mMidiCallback && mOnMidiEventId) {
+                    env->CallVoidMethod(mMidiCallback, mOnMidiEventId,
+                                       (jint)evt.channel, (jint)evt.type,
+                                       (jint)evt.data1,   (jint)evt.data2);
+                }
             }
         }
         if (!any) {

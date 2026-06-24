@@ -37,21 +37,27 @@ fun LoopControls(
                 else
                     MaterialTheme.colorScheme.primary
             ),
-            enabled = loopState != LoopState.Playing,
+            enabled = loopState == LoopState.Idle || loopState == LoopState.Armed,
         ) {
-            Text(if (loopState == LoopState.Recording) "\u25CF REC" else "REC")
+            Text(
+                when (loopState) {
+                    LoopState.Recording -> "\u25CF REC"
+                    LoopState.Armed     -> "\u25CF ARMED"
+                    else                -> "REC"
+                }
+            )
         }
 
         Button(
             onClick = onStop,
-            enabled = loopState == LoopState.Recording,
+            enabled = loopState == LoopState.Recording || loopState == LoopState.Armed,
         ) {
             Text("STOP")
         }
 
         OutlinedButton(
             onClick = onClear,
-            enabled = loopState == LoopState.Playing,
+            enabled = loopState == LoopState.Playing || loopState == LoopState.Idle,
         ) {
             Text("CLEAR")
         }
@@ -60,6 +66,7 @@ fun LoopControls(
             LoopState.Idle      -> ""
             LoopState.Recording -> "recording\u2026"
             LoopState.Playing   -> "looping"
+            LoopState.Armed     -> "armed\u2026"
         }
         if (label.isNotEmpty()) {
             Text(
@@ -87,4 +94,10 @@ private fun LoopControlsRecordingPreview() {
 @Composable
 private fun LoopControlsPlayingPreview() {
     BtmidTheme { LoopControls(LoopState.Playing, {}, {}, {}) }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LoopControlsArmedPreview() {
+    BtmidTheme { LoopControls(LoopState.Armed, {}, {}, {}) }
 }

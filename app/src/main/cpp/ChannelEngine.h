@@ -13,7 +13,7 @@
 //   - pollMidi() / renderChannels() helpers for subclass render loops
 class ChannelEngine : public AudioEngine {
 public:
-    ChannelEngine() = default;
+    ChannelEngine();
     ~ChannelEngine() override = default;
 
     ChannelEngine(const ChannelEngine&) = delete;
@@ -52,4 +52,5 @@ protected:
     JavaVM*    mJvm           {nullptr};
     jobject    mMidiCallback  {nullptr};
     jmethodID  mOnMidiEventId {nullptr};
+    jmethodID  mOnLoopStateId {nullptr};
 };

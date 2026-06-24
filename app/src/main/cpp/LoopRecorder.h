@@ -33,6 +33,8 @@ public:
 
     void startRecordOnPlay();
 
+    std::function<void(State)> onStateChange;
+
     State state() const { return mState.load(std::memory_order_acquire); }
 
     void advance(int32_t frames, const std::function<void(MidiMsg)> &fire);
@@ -42,6 +44,10 @@ public:
     void onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel);
 
 private:
+    void changeState(State newState) {
+        mState.store(newState, std::memory_order_release);
+        if (onStateChange) onStateChange(newState);
+    }
     std::atomic<State> mState{State::Idle};
     int64_t mStartRecordNs;
     int64_t mStopRecordNs;

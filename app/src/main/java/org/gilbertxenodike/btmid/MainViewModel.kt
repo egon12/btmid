@@ -28,7 +28,7 @@ enum class DrumBackend { Noise, Fm, Samples }
 
 enum class KeyboardType { Piano, Poly, Mono }
 enum class SynthWaveform { Sine, Saw, Square }
-enum class LoopState { Idle, Recording, Playing }
+enum class LoopState { Idle, Recording, Playing, Armed }
 
 sealed class AudioEngine {
     object Oboe : AudioEngine()
@@ -103,6 +103,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                     midiActivityPulse = !current.midiActivityPulse,
                 )
+            }
+        }
+        viewModelScope.launch {
+            midiRouter.loopStateEvents.collect { state ->
+                val ls = when (state) {
+                    1    -> LoopState.Recording
+                    2    -> LoopState.Playing
+                    3    -> LoopState.Armed
+                    else -> LoopState.Idle
+                }
+                _uiState.value = _uiState.value.copy(loopState = ls)
             }
         }
     }
@@ -213,7 +224,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loopRecord() {
         NativeAudioEngine.loopStartRecord()
-        _uiState.value = _uiState.value.copy(loopState = LoopState.Recording, loopLengthSec = 0f)
+        _uiState.value = _uiState.value.copy(loopState = LoopState.Armed, loopLengthSec = 0f)
     }
 
     fun loopStop() {

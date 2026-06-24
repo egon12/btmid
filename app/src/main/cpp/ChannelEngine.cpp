@@ -2,6 +2,12 @@
 #include "MidiParser.h"
 #include <android/log.h>
 
+ChannelEngine::ChannelEngine() {
+    mLoopRecorder.onStateChange = [this](LoopRecorder::State s) {
+        mEventQueue.push({0xFF, static_cast<uint8_t>(s), 0, 0});
+    };
+}
+
 #define LOG_TAG "ChannelEngine"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -101,6 +107,7 @@ void ChannelEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallbac
     mMidiCallback = env->NewGlobalRef(jCallback);
     jclass cls = env->GetObjectClass(jCallback);
     mOnMidiEventId = env->GetMethodID(cls, "onMidiEvent", "(IIII)V");
+    mOnLoopStateId = env->GetMethodID(cls, "onLoopState", "(I)V");
     env->DeleteLocalRef(cls);
 
     LOGD("AMidi output port set");
@@ -156,4 +163,5 @@ void ChannelEngine::clearOutputPort() {
     }
     mJvm = nullptr;
     mOnMidiEventId = nullptr;
+    mOnLoopStateId = nullptr;
 }

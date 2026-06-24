@@ -10,8 +10,9 @@ object NativeAudioEngine {
 
     private val ptr: Long = create()
 
-    fun interface MidiEventListener {
+    interface MidiEventListener {
         fun onMidiEvent(channel: Int, type: Int, data1: Int, data2: Int)
+        fun onLoopState(state: Int) {}
     }
 
     fun start() = start(ptr)

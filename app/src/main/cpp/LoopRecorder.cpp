@@ -9,25 +9,25 @@ void LoopRecorder::startRecording() {
     timespec start{};
     auto res = clock_gettime(CLOCK_MONOTONIC, &start);
     mStartRecordNs = start.tv_sec * 1000000000L + start.tv_nsec;
-    mState.store(State::Recording, std::memory_order_release);
+    changeState(State::Recording);
 }
 
 void LoopRecorder::stopRecording() {
     timespec stop{};
     auto res = clock_gettime(CLOCK_MONOTONIC, &stop);
     mStopRecordNs = stop.tv_sec * 1000000000L + stop.tv_nsec;
-    mState.store(State::Playing, std::memory_order_release);
+    changeState(State::Playing);
     map_timestamp_to_frame();
 }
 
 void LoopRecorder::startRecordOnPlay() {
-    mState.store(State::StartRecordOnPlay, std::memory_order_release);
+    changeState(State::StartRecordOnPlay);
 }
 
 void LoopRecorder::clear() {
     mEventsRecorded.clear();
     mEventsPlay.clear();
-    mState.store(State::Idle, std::memory_order_release);
+    changeState(State::Idle);
 
     mStartPlayIndex = 0;
     mLoopLength = 0;
@@ -44,7 +44,7 @@ void LoopRecorder::onMidiEvent(MidiMsg msg, int64_t timestamp) {
 
     if (mState.load(std::memory_order_acquire) == State::StartRecordOnPlay) {
         mStartRecordNs = timestamp;
-        mState.store(State::Recording, std::memory_order_release);
+        changeState(State::Recording);
         mEventsRecorded.push_back({timestamp + 100, msg});
         return;
     }
@@ -66,7 +66,7 @@ void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note
         auto ns = t.tv_sec * 1000000000L + t.tv_nsec;
 
         mStartRecordNs = ns;
-        mState.store(State::Recording, std::memory_order_release);
+        changeState(State::Recording);
         mEventsRecorded.push_back({ns + 1000, MidiMsg{type, channel, note, vel}});
         return;
     }
