@@ -254,7 +254,7 @@ if (current >= mLoopLength) {   // use >= not > to handle exact-boundary case
 
 **File:** `app/src/main/cpp/LoopRecorder.cpp`
 
-Neither `startRecording()` nor the `StartRecordOnPlay` branch clears `mEventsRecorded`.
+Neither `startRecording()` nor the `Armed` branch clears `mEventsRecorded`.
 If the user records, stops, then records again without `clear()`, old events remain and
 `map_timestamp_to_frame()` processes them all — those with timestamps before `mStartRecordNs`
 produce overflowed `int32_t` frame values in `mEventsPlay`, causing ghost notes.
@@ -268,8 +268,8 @@ void LoopRecorder::startRecording() {
     mState.store(State::Recording, std::memory_order_release);
 }
 
-// In onMidiEvent(), StartRecordOnPlay branch — clear before first push_back:
-if (mState.load(std::memory_order_acquire) == State::StartRecordOnPlay) {
+// In onMidiEvent(), Armed branch — clear before first push_back:
+if (mState.load(std::memory_order_acquire) == State::Armed) {
     mEventsRecorded.clear();   // ← add
     mStartRecordNs = timestamp;
     mState.store(State::Recording, std::memory_order_release);
@@ -286,10 +286,10 @@ deferred-flag pattern from Fix 1.
 
 ## Additional notes
 
-- `FrameMidiMeg` in `LoopRecorder.h` is a typo — rename to `FrameMidiMsg`.
+- `FrameMidiMsg` in `LoopRecorder.h` is a typo — rename to `FrameMidiMsg`.
 - The CC 93/95 control-surface mapping inside `LoopRecorder::onMidiEvent` leaks transport
   concerns into the recorder. Consider moving to `ChannelEngine::pollMidi()` so the
   mapping is visible and configurable without touching the recorder.
-- `timestamp + 100` in the `StartRecordOnPlay` branch is unexplained. If the intent is
+- `timestamp + 100` in the `Armed` branch is unexplained. If the intent is
   "+100 frames" it should be `+100LL * 1000000000LL / kSampleRate` ns (~2 ms at 48 kHz).
   If it is cosmetic, remove it.

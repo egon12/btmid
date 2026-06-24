@@ -40,9 +40,10 @@ fun LoopControls(
                     LoopState.Recording -> Red
                     LoopState.Playing -> SoftRed
                     LoopState.Armed -> Red
+                    LoopState.Overdubbing -> Red
                 }
             ),
-            enabled = loopState == LoopState.Idle || loopState == LoopState.Armed,
+            //enabled = loopState == LoopState.Idle || loopState == LoopState.Recording || loopState == LoopState.Playing,
 
             ) {
             Text(
@@ -55,7 +56,7 @@ fun LoopControls(
 
         Button(
             onClick = onStop,
-            enabled = loopState == LoopState.Recording || loopState == LoopState.Armed,
+            enabled = loopState == LoopState.Recording || loopState == LoopState.Overdubbing || loopState == LoopState.Armed,
         ) {
             Text("STOP")
         }
@@ -72,6 +73,7 @@ fun LoopControls(
             LoopState.Recording -> "recording\u2026"
             LoopState.Playing -> "looping"
             LoopState.Armed -> "armed\u2026"
+            LoopState.Overdubbing -> "overdubbing\u2026"
         }
         if (label.isNotEmpty()) {
             Text(

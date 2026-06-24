@@ -28,7 +28,7 @@ enum class DrumBackend { Noise, Fm, Samples }
 
 enum class KeyboardType { Piano, Poly, Mono }
 enum class SynthWaveform { Sine, Saw, Square }
-enum class LoopState { Idle, Recording, Playing, Armed }
+enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
 
 sealed class AudioEngine {
     object Oboe : AudioEngine()
@@ -112,6 +112,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     1 -> LoopState.Recording
                     2 -> LoopState.Playing
                     3 -> LoopState.Armed
+                    4 -> LoopState.Overdubbing
                     else -> LoopState.Idle
                 }
                 _uiState.value = _uiState.value.copy(loopState = ls)

@@ -14,7 +14,7 @@ struct TimestampedMidiMsg {
     MidiMsg msg;
 };
 
-struct FrameMidiMeg {
+struct FrameMidiMsg {
     int32_t frame;
     MidiMsg msg;
 };
@@ -22,7 +22,7 @@ struct FrameMidiMeg {
 class LoopRecorder {
 public:
     enum class State {
-        Idle = 0, Recording = 1, Playing = 2, StartRecordOnPlay = 3,
+        Idle = 0, Recording = 1, Playing = 2, Armed = 3, Overdubbing = 4,
     };
 
     void startRecording();
@@ -30,8 +30,6 @@ public:
     void stopRecording();
 
     void clear();
-
-    void startRecordOnPlay();
 
     std::function<void(State)> onStateChange;
 
@@ -44,6 +42,7 @@ public:
     void onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel);
 
 private:
+    const float mTimestampToFrame = static_cast<float>(kSampleRate) / 1'000'000'000.0;
 
     std::atomic<State> mState{State::Idle};
     void changeState(State newState);
@@ -52,7 +51,9 @@ private:
     int64_t mStopRecordNs;
 
     std::vector<TimestampedMidiMsg> mEventsRecorded;
-    std::vector<FrameMidiMeg> mEventsPlay;
+    std::vector<FrameMidiMsg> mEventsOverdubbed;
+
+    std::shared_ptr<std::vector<FrameMidiMsg>> mPlayEventsPtr;
 
     int32_t mLoopLength{0};
     int32_t current{0};

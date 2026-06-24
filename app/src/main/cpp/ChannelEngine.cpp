@@ -113,7 +113,7 @@ void ChannelEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallbac
     LOGD("AMidi output port set");
 }
 
-void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecordOnPlay(); }
+void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
 
 void ChannelEngine::loopStopRecord() { mLoopRecorder.stopRecording(); }
 
