@@ -44,11 +44,10 @@ public:
     void onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel);
 
 private:
-    void changeState(State newState) {
-        mState.store(newState, std::memory_order_release);
-        if (onStateChange) onStateChange(newState);
-    }
+
     std::atomic<State> mState{State::Idle};
+    void changeState(State newState);
+
     int64_t mStartRecordNs;
     int64_t mStopRecordNs;
 

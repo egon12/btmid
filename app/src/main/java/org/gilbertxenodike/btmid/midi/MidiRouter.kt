@@ -1,5 +1,6 @@
 package org.gilbertxenodike.btmid.midi
 
+import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -14,6 +15,10 @@ class MidiRouter : NativeAudioEngine.MidiEventListener {
 
     // Called from the C++ dispatch thread after AMidi parses each event
     override fun onMidiEvent(channel: Int, type: Int, data1: Int, data2: Int) {
+
+        Log.d("MidiRouter", "Loop onMidiEvent: $channel $type $data1 $data2")
+
+
         val event: MidiEvent = when (type) {
             0x80 -> MidiEvent.NoteOff(channel, data1, data2)
             0x90 -> MidiEvent.NoteOn(channel, data1, data2)

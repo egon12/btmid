@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonDefaults.buttonColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -14,7 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.gilbertxenodike.btmid.LoopState
+import org.gilbertxenodike.btmid.ui.modifier.blink
 import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
+import org.gilbertxenodike.btmid.ui.theme.Red
+import org.gilbertxenodike.btmid.ui.theme.SoftRed
 
 @Composable
 fun LoopControls(
@@ -31,21 +34,23 @@ fun LoopControls(
     ) {
         Button(
             onClick = onRecord,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (loopState == LoopState.Recording)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.primary
+            colors = buttonColors(
+                containerColor = when (loopState) {
+                    LoopState.Idle -> SoftRed
+                    LoopState.Recording -> Red
+                    LoopState.Playing -> SoftRed
+                    LoopState.Armed -> Red
+                }
             ),
             enabled = loopState == LoopState.Idle || loopState == LoopState.Armed,
-        ) {
+
+            ) {
             Text(
-                when (loopState) {
-                    LoopState.Recording -> "\u25CF REC"
-                    LoopState.Armed     -> "\u25CF ARMED"
-                    else                -> "REC"
-                }
+                "\u25CF ",
+                modifier = if (loopState == LoopState.Armed) Modifier.blink() else Modifier,
             )
+            Text("REC")
+
         }
 
         Button(
@@ -63,10 +68,10 @@ fun LoopControls(
         }
 
         val label = when (loopState) {
-            LoopState.Idle      -> ""
+            LoopState.Idle -> ""
             LoopState.Recording -> "recording\u2026"
-            LoopState.Playing   -> "looping"
-            LoopState.Armed     -> "armed\u2026"
+            LoopState.Playing -> "looping"
+            LoopState.Armed -> "armed\u2026"
         }
         if (label.isNotEmpty()) {
             Text(

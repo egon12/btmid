@@ -120,3 +120,9 @@ void LoopRecorder::map_timestamp_to_frame() {
         mEventsPlay.push_back({frame, e.msg});
     }
 }
+
+void LoopRecorder::changeState(State newState) {
+    mState.store(newState, std::memory_order_release);
+    LOGD("changeState: %d", newState);
+    if (onStateChange) onStateChange(newState);
+}

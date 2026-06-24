@@ -2,15 +2,15 @@
 #include "MidiParser.h"
 #include <android/log.h>
 
+#define LOG_TAG "ChannelEngine"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+
 ChannelEngine::ChannelEngine() {
     mLoopRecorder.onStateChange = [this](LoopRecorder::State s) {
         mEventQueue.push({0xFF, static_cast<uint8_t>(s), 0, 0});
     };
 }
-
-#define LOG_TAG "ChannelEngine"
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 void ChannelEngine::setInstrument(int channel, Instrument *instrument) {
     if (channel >= 0 && channel < 16)
