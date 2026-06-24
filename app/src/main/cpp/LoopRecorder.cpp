@@ -28,6 +28,10 @@ void LoopRecorder::clear() {
     mEventsRecorded.clear();
     mEventsPlay.clear();
     mState.store(State::Idle, std::memory_order_release);
+
+    mStartPlayIndex = 0;
+    mLoopLength = 0;
+    current = 0;
 }
 
 void LoopRecorder::onMidiEvent(MidiMsg msg, int64_t timestamp) {
@@ -41,7 +45,7 @@ void LoopRecorder::onMidiEvent(MidiMsg msg, int64_t timestamp) {
     if (mState.load(std::memory_order_acquire) == State::StartRecordOnPlay) {
         mStartRecordNs = timestamp;
         mState.store(State::Recording, std::memory_order_release);
-        mEventsRecorded.push_back({timestamp+100, msg});
+        mEventsRecorded.push_back({timestamp + 100, msg});
         return;
     }
 
@@ -50,14 +54,28 @@ void LoopRecorder::onMidiEvent(MidiMsg msg, int64_t timestamp) {
         stopRecording();
         return;
     }
+
     mEventsRecorded.push_back({timestamp, msg});
 }
 
-void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t note, uint8_t vel) {
+void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
+
+    if (mState.load(std::memory_order_acquire) == State::StartRecordOnPlay) {
+        timespec t{};
+        auto res = clock_gettime(CLOCK_MONOTONIC, &t);
+        auto ns = t.tv_sec * 1000000000L + t.tv_nsec;
+
+        mStartRecordNs = ns;
+        mState.store(State::Recording, std::memory_order_release);
+        mEventsRecorded.push_back({ns + 1000, MidiMsg{type, channel, note, vel}});
+        return;
+    }
+
+    if (mState.load(std::memory_order_acquire) != State::Recording) return;
     timespec t{};
     auto res = clock_gettime(CLOCK_MONOTONIC, &t);
-
-    mEventsRecorded.push_back({t.tv_nsec, MidiMsg{type, 0, note, vel}});
+    auto ns = t.tv_sec * 1000000000L + t.tv_nsec;
+    mEventsRecorded.push_back({ns, MidiMsg{type, channel, note, vel}});
 }
 
 void LoopRecorder::advance(int32_t frames, const std::function<void(MidiMsg)> &fire) {
@@ -67,12 +85,12 @@ void LoopRecorder::advance(int32_t frames, const std::function<void(MidiMsg)> &f
 
     int32_t endFrame = current + frames;
 
-    for (int i = playedIndex + 1; i < mEventsPlay.size(); i++) {
+    for (int i = mStartPlayIndex; i < mEventsPlay.size(); i++) {
         auto event = mEventsPlay.at(i);
         if (event.frame <= endFrame) {
             fire(event.msg);
         } else if (event.frame > endFrame) {
-            playedIndex = i - 1;
+            mStartPlayIndex = i;
             break;
         }
     }
@@ -80,32 +98,25 @@ void LoopRecorder::advance(int32_t frames, const std::function<void(MidiMsg)> &f
     current = endFrame;
     if (current > mLoopLength) {
         current -= mLoopLength;
-        playedIndex = -1;
+        mStartPlayIndex = 0;
     }
 }
 
 void LoopRecorder::map_timestamp_to_frame() {
-
     mEventsPlay.clear();
+    mEventsPlay.reserve(mEventsRecorded.size());
 
     auto stop = mStopRecordNs;
     auto start = mStartRecordNs;
     auto duration = stop - start;
 
-    LOGD("start: %lld stop: %lld duration: %lld", start, stop, duration);
-
     const auto multiplier = static_cast<float>(kSampleRate) / 1000000000.0;
-    LOGD("multiplier: %f", multiplier);
 
     // number of frames = duration / (1000 * 1000 * 1000L) * 48000L
     mLoopLength = static_cast<int32_t>(static_cast<float>(duration) * multiplier);
     for (auto e: mEventsRecorded) {
         auto t = e.timestamp - start;
-        LOGD("timestamp: %lld %d %d %d", t, e.msg.channel, e.msg.type, e.msg.data1);
-
         auto frame = static_cast<int32_t>(static_cast<float>(t) * multiplier);
-
         mEventsPlay.push_back({frame, e.msg});
-        LOGD("framed.  : %d %d %d %d", frame, e.msg.channel, e.msg.type, e.msg.data1);
     }
 }

@@ -39,7 +39,7 @@ public:
 
     void onMidiEvent(MidiMsg msg, int64_t timestamp);
 
-    void onUiMidiEvent(MidiMsgType type, uint8_t note, uint8_t vel);
+    void onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel);
 
 private:
     std::atomic<State> mState{State::Idle};
@@ -50,8 +50,8 @@ private:
     std::vector<FrameMidiMeg> mEventsPlay;
 
     int32_t mLoopLength{0};
-    int32_t current;
-    int playedIndex{0};
+    int32_t current{0};
+    int mStartPlayIndex{0};
 
     void map_timestamp_to_frame();
 };

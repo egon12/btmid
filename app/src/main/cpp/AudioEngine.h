@@ -33,5 +33,5 @@ public:
     virtual void loopStopRecord()  {}
     virtual void loopClear()       {}
     virtual int  loopState()       { return 0; }
-    virtual void loopRecordEvent(MidiMsgType type, uint8_t note, uint8_t vel) {}
+    virtual void loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {}
 };

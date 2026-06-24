@@ -114,8 +114,8 @@ void ChannelEngine::loopClear() { mLoopRecorder.clear(); }
 
 int ChannelEngine::loopState() { return static_cast<int>(mLoopRecorder.state()); }
 
-void ChannelEngine::loopRecordEvent(MidiMsgType type, uint8_t note, uint8_t vel) {
-    mLoopRecorder.onUiMidiEvent(type, note, vel);
+void ChannelEngine::loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
+    mLoopRecorder.onUiMidiEvent(type, channel, note, vel);
 }
 
 void ChannelEngine::advanceLoop(int32_t frames) {
