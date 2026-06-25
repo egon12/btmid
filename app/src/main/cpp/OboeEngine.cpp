@@ -1,6 +1,6 @@
 #include "OboeEngine.h"
 #include <android/log.h>
-#include <time.h>
+#include <ctime>
 
 #define LOG_TAG "OboeEngine"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -16,6 +16,7 @@ void OboeEngine::start() {
     builder.setDirection(oboe::Direction::Output)
            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
            ->setSharingMode(oboe::SharingMode::Exclusive)
+           // TODO experiment with oboe::AudioFormat::I16
            ->setFormat(oboe::AudioFormat::Float)
            ->setChannelCount(oboe::ChannelCount::Mono)
            ->setSampleRate(kSampleRate)
@@ -63,7 +64,7 @@ void OboeEngine::dispatchLoop() {
     if (mJvm) mJvm->AttachCurrentThread(&env, nullptr);
 
     while (mDispatchRunning.load(std::memory_order_acquire)) {
-        MidiEvt evt;
+        MidiEvt evt{};
         bool    any = false;
         while (mEventQueue.pop(evt)) {
             any = true;

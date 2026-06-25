@@ -49,6 +49,8 @@ private:
     float mPortamentoCoeff{0.0f};
     Waveform mWaveform{Waveform::Sine};
 
+    int lastNote{-1};
+
     void handleNoteOn(int note, int velocity);
     void handleNoteOff(int note);
     void recalcPortamentoCoeff(float tau);

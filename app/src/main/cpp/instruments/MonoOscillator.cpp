@@ -34,6 +34,7 @@ float MonoOscillator::midiToFreq(int note) {
 }
 
 void MonoOscillator::handleNoteOn(int note, int velocity) {
+    lastNote = note;
     float freq = midiToFreq(note);
     float peak = std::pow(static_cast<float>(velocity) / 127.0f, 1.5f) * 0.7f;
     mTargetFreq = freq;
@@ -62,7 +63,9 @@ void MonoOscillator::handleNoteOn(int note, int velocity) {
     }
 }
 
-void MonoOscillator::handleNoteOff(int) {
+void MonoOscillator::handleNoteOff(int note) {
+    if (note != lastNote) return;
+
     if (mPhase != EnvPhase::Idle && mPhase != EnvPhase::Release) {
         mPhase = EnvPhase::Release;
         mEnvSamples = 0;
