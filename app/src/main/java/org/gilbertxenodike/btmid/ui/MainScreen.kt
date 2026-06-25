@@ -89,12 +89,14 @@ fun MainScreen(
                     onStopScan = onStopScan,
                 )
 
+                /*
                 EngineSelector(
                     selectEngineDialogVisible = uiState.selectEngineDialogVisible,
                     showSelectEngineDialog = showSelectEngineDialog,
                     onSelectEngine = onSelectEngine,
                     currentEngine = uiState.engine,
                 )
+                 */
             }
 
             if (uiState.discoveredDevices.isNotEmpty()) {
@@ -148,7 +150,7 @@ fun MainScreen(
 
             SustainButton()
 
-            BenchmarkSection()
+            //BenchmarkSection()
 
             if (uiState.recentEvents.isNotEmpty()) {
                 HorizontalDivider()
