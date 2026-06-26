@@ -73,7 +73,7 @@ Partial `AudioEngine` implementation shared by `OboeEngine` and `WifiEngine`.
 - Channel-indexed instrument routing (`mChannels[16]` — `std::atomic<Instrument*>`)
 - AMidi port open/close and JNI callback registration
 - `pollMidi()` — drains AMidi, routes to instruments, calls MIDI observer, pushes to event queue
-- `renderChannels()` — renders each unique instrument into a float buffer (deduplicates by pointer)
+- `render()` — renders each unique instrument into a float buffer (deduplicates by pointer)
 - `advanceLoop()` — calls the advance callback (set by AudioGraph) to tick the loop recorder
 
 **Observer/callback members:**
@@ -111,7 +111,7 @@ MIDI event loop recorder and player. Records timestamped MIDI events and plays t
 **Audio thread (`onAudioReady`):**
 1. `pollMidi()` — drain AMidi, route to instruments, call MIDI observer, push to event queue
 2. `advanceLoop(numFrames)` — tick LoopRecorder via callback
-3. Zero buffer, `renderChannels()` — render instruments into Oboe output
+3. Zero buffer, `render()` — render instruments into Oboe output
 
 **Dispatch thread (`dispatchLoop`):**
 - Drains `SpscRing<MidiEvt>` → JNI callback → `MidiRouter` → `SharedFlow` → ViewModel → UI
@@ -124,7 +124,7 @@ MIDI event loop recorder and player. Records timestamped MIDI events and plays t
 **Render thread (`udpRenderLoop`, 10 ms cadence):**
 1. `pollMidi()` — same as OboeEngine
 2. `advanceLoop(kFramesPerBuf)` — tick LoopRecorder via callback
-3. Zero buffer, `renderChannels()` — render instruments
+3. Zero buffer, `render()` — render instruments
 4. Skip if silent; otherwise `opus_encode_float()` → `sendto()` UDP
 
 ## Data Flow
@@ -145,7 +145,7 @@ OboeEngine path (local speaker):
       advanceLoop(numFrames)
         → mAdvanceCallback(frames) → AudioGraph → LoopRecorder::advance()
         → LoopRecorder fires played-back events → engine->noteOn/Off/CC → Instrument
-      renderChannels() → Oboe float output
+      render() → Oboe float output
   → dispatchLoop() (dedicated thread)
       drain SpscRing → JNI callback → MidiRouter → SharedFlow → UI
 
@@ -153,7 +153,7 @@ WifiEngine path (network):
   → udpRenderLoop() (dedicated thread, 10 ms)
       pollMidi() → same as OboeEngine
       advanceLoop(kFramesPerBuf) → same as OboeEngine
-      renderChannels() → float buf → opus_encode_float → sendto UDP
+      render() → float buf → opus_encode_float → sendto UDP
 
 On-screen input (no BLE device):
   PianoKeyboard (ch 0) ──┐
@@ -166,7 +166,7 @@ On-screen input (no BLE device):
 ## Threading
 
 - **BLE scan callbacks** → main thread
-- **Oboe audio thread** → `onAudioReady()` → pollMidi → advanceLoop → renderChannels
+- **Oboe audio thread** → `onAudioReady()` → pollMidi → advanceLoop → render
 - **Oboe dispatch thread** → drains SpscRing → JNI → MidiRouter → SharedFlow → ViewModel
 - **WifiEngine render thread** → 10 ms timer → pollMidi → advanceLoop → render → Opus → UDP
 - **UI thread** → `NativeAudioEngine.noteOn/Off()` → JNI → AudioGraph → engine + LoopRecorder

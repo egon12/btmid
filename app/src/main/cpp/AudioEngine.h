@@ -17,12 +17,12 @@ public:
     virtual void noteOff(int channel, int note) = 0;
     virtual void controlChange(int channel, int cc, int value) {}
 
-    // Used by InstrumentRepository to wire externally-owned instruments (OboeEngine).
+    // Used by InstrumentRepository to wire externally-owned instruments (OboeOutput).
     // WifiEngine manages its own instruments internally and ignores this.
     virtual void setInstrument(int channel, Instrument* instrument) {}
 
     // Used by WifiEngine which owns its own SampleDrum.
-    // OboeEngine delegates sample loading through InstrumentRepository instead.
+    // OboeOutput delegates sample loading through InstrumentRepository instead.
     virtual void loadSample(int id, const float* data, int len) {}
     virtual void setDrumBackend(int id) {}
 

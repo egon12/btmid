@@ -9,7 +9,7 @@ Harsh evaluation of the current C++ native audio architecture and proposed impro
 It's doing 6 different things:
 - MIDI I/O (AMidi port open/close/poll)
 - MIDI routing (channel → instrument)
-- Audio rendering (renderChannels)
+- Audio rendering (render)
 - Loop recording integration
 - Event queue management (SpscRing for UI)
 - JNI callback registration
@@ -34,7 +34,7 @@ The `SpscRing<MidiEvt>` and JNI callback management are for UI notification. Thi
 
 ### 5. Protected Methods Create Tight Coupling
 
-`pollMidi()` and `renderChannels()` are protected methods. Subclasses must call them in the right order. This is fragile and hard to test.
+`pollMidi()` and `render()` are protected methods. Subclasses must call them in the right order. This is fragile and hard to test.
 
 ## Proposed Design
 

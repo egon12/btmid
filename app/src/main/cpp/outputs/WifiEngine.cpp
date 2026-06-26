@@ -1,4 +1,5 @@
 #include "WifiEngine.h"
+#include "../UICallback.h"
 #include <android/log.h>
 #include <ctime>
 #include <sys/socket.h>
@@ -54,11 +55,13 @@ void WifiEngine::start() {
 
     mUdpRunning.store(true, std::memory_order_relaxed);
     mUdpThread = std::thread(&WifiEngine::udpRenderLoop, this);
+    if (mUICallback) mUICallback->start();
     LOGD("UDP audio streaming started — %s:%d", mHost.c_str(), mPort);
 }
 
 void WifiEngine::stop() {
     if (mUdpRunning.exchange(false)) {
+        if (mUICallback) mUICallback->stop();
         if (mUdpThread.joinable()) mUdpThread.join();
     }
     if (mUdpSocket >= 0) {
@@ -84,7 +87,7 @@ void WifiEngine::udpRenderLoop() {
         advanceLoop(kFramesPerBuf);
 
         for (float& s : buf) s = 0.0f;
-        renderChannels(buf, kFramesPerBuf);
+        render(buf, kFramesPerBuf);
 
         bool hasData = false;
         for (float s : buf) { if (s != 0.0f) { hasData = true; break; } }

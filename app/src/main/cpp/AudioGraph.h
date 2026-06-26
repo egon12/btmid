@@ -5,6 +5,10 @@
 #include "AudioEngine.h"
 #include "InstrumentRepository.h"
 
+class MidiEngine;
+class UICallback;
+class OboeOutput;
+
 class AudioGraph {
 public:
     AudioGraph();
@@ -16,9 +20,10 @@ public:
     void start();
     void stop();
 
-    // Swap to a different engine. The old engine is stopped before replacement.
-    // Caller is responsible for any engine-specific setup (e.g. startUdp) afterwards.
-    void setEngine(std::unique_ptr<AudioEngine> engine);
+    void openMidiDevice(JNIEnv* env, jobject jDevice, jobject jCallback);
+    void closeMidiDevice();
+
+    void setEngine(int engineId, const std::string& host, int port);
 
     void setInstrument(int channel, const std::string& id);
     void loadDrumSample(int id, const float* data, int len);
@@ -27,9 +32,6 @@ public:
     void noteOff(int channel, int note);
     void controlChange(int channel, int cc, int value);
 
-    void openMidiDevice(JNIEnv* env, jobject jDevice, jobject jCallback);
-    void closeMidiDevice();
-
     void loopStartRecord();
     void loopStopRecord();
     void loopClear();
@@ -37,8 +39,8 @@ public:
     void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel);
 
 private:
-    // mRepository declared first so it outlives mEngine (reverse destruction order).
-    // OboeEngine holds raw Instrument* from mRepository; engine must die first.
     InstrumentRepository         mRepository;
-    std::unique_ptr<AudioEngine> mEngine;
+    std::unique_ptr<UICallback>  mUICallback;
+    std::shared_ptr<MidiEngine>  mMidiEngine;
+    std::unique_ptr<OboeOutput>  mOboeOutput;
 };

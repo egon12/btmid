@@ -9,7 +9,8 @@ add_library(btmid SHARED
 	MidiParser.cpp
 	LoopRecorder.cpp
 	MidiEngine.cpp
-	outputs/OboeEngine.cpp
+	UICallback.cpp
+	outputs/OboeOutput.cpp
 	outputs/WifiEngine.cpp
 	InstrumentRepository.cpp
 	AudioGraph.cpp

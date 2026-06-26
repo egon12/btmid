@@ -1,4 +1,5 @@
 #include "MidiEngine.h"
+#include "UICallback.h"
 #include "MidiParser.h"
 #include <android/log.h>
 
@@ -8,7 +9,9 @@
 
 MidiEngine::MidiEngine() {
     mLoopRecorder.onStateChange = [this](LoopRecorder::State s) {
-        mEventQueue.push({0xFF, static_cast<uint8_t>(s), 0, 0});
+        MidiEvt evt{0xFF, static_cast<uint8_t>(s), 0, 0};
+        mEventQueue.push(evt);
+        if (mUICallback) mUICallback->onMidiEvent(evt);
     };
 }
 
@@ -35,6 +38,51 @@ void MidiEngine::controlChange(int channel, int cc, int value) {
     if (inst) inst->controlChange(channel, cc, value);
 }
 
+void MidiEngine::setUICallback(UICallback *callback) {
+    mUICallback = callback;
+}
+
+void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
+    clearOutputPort();
+
+    media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
+    if (status != AMEDIA_OK) {
+        LOGE("AMidiDevice_fromJava failed: %d", status);
+        return;
+    }
+    AMidiOutputPort *port = nullptr;
+    status = AMidiOutputPort_open(mNativeDevice, 0, &port);
+    if (status != AMEDIA_OK) {
+        LOGE("AMidiOutputPort_open failed: %d", status);
+        AMidiDevice_release(mNativeDevice);
+        mNativeDevice = nullptr;
+        return;
+    }
+    mMidiPort.store(port, std::memory_order_release);
+    mRunningStatus = 0;
+
+    if (mUICallback) {
+        mUICallback->setCallback(env, jCallback);
+        mUICallback->start();
+    }
+
+    LOGD("AMidi output port set");
+}
+
+void MidiEngine::clearOutputPort() {
+    if (mUICallback) {
+        mUICallback->stop();
+    }
+
+    AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
+    if (port) AMidiOutputPort_close(port);
+    if (mNativeDevice) {
+        AMidiDevice_release(mNativeDevice);
+        mNativeDevice = nullptr;
+    }
+    mRunningStatus = 0;
+}
+
 void MidiEngine::pollMidi() {
     AMidiOutputPort *midiPort = mMidiPort.load(std::memory_order_acquire);
     if (!midiPort) return;
@@ -59,13 +107,15 @@ void MidiEngine::pollMidi() {
 
             mLoopRecorder.onMidiEvent(m, timestamp);
 
-            mEventQueue.push({m.channel, static_cast<uint8_t>(m.type),
-                              m.data1, m.data2});
+            MidiEvt evt{m.channel, static_cast<uint8_t>(m.type),
+                        m.data1, m.data2};
+            mEventQueue.push(evt);
+            if (mUICallback) mUICallback->onMidiEvent(evt);
         }
     }
 }
 
-void MidiEngine::renderChannels(float *buf, int32_t frames) {
+void MidiEngine::render(float *buf, int32_t frames) {
     Instrument *rendered[16]{};
     int renderCount = 0;
     for (auto &ch: mChannels) {
@@ -82,35 +132,6 @@ void MidiEngine::renderChannels(float *buf, int32_t frames) {
             inst->render(buf, frames);
         }
     }
-}
-
-void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
-    clearOutputPort();
-
-    media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
-    if (status != AMEDIA_OK) {
-        LOGE("AMidiDevice_fromJava failed: %d", status);
-        return;
-    }
-    AMidiOutputPort *port = nullptr;
-    status = AMidiOutputPort_open(mNativeDevice, 0, &port);
-    if (status != AMEDIA_OK) {
-        LOGE("AMidiOutputPort_open failed: %d", status);
-        AMidiDevice_release(mNativeDevice);
-        mNativeDevice = nullptr;
-        return;
-    }
-    mMidiPort.store(port, std::memory_order_release);
-    mRunningStatus = 0;
-
-    env->GetJavaVM(&mJvm);
-    mMidiCallback = env->NewGlobalRef(jCallback);
-    jclass cls = env->GetObjectClass(jCallback);
-    mOnMidiEventId = env->GetMethodID(cls, "onMidiEvent", "(IIII)V");
-    mOnLoopStateId = env->GetMethodID(cls, "onLoopState", "(I)V");
-    env->DeleteLocalRef(cls);
-
-    LOGD("AMidi output port set");
 }
 
 void MidiEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
@@ -142,26 +163,4 @@ void MidiEngine::advanceLoop(int32_t frames) {
                 break;
         }
     });
-}
-
-void MidiEngine::clearOutputPort() {
-    AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
-    if (port) AMidiOutputPort_close(port);
-    if (mNativeDevice) {
-        AMidiDevice_release(mNativeDevice);
-        mNativeDevice = nullptr;
-    }
-    mRunningStatus = 0;
-
-    if (mMidiCallback && mJvm) {
-        JNIEnv *env = nullptr;
-        bool attached = mJvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_EDETACHED;
-        if (attached) mJvm->AttachCurrentThread(&env, nullptr);
-        if (env) env->DeleteGlobalRef(mMidiCallback);
-        if (attached) mJvm->DetachCurrentThread();
-        mMidiCallback = nullptr;
-    }
-    mJvm = nullptr;
-    mOnMidiEventId = nullptr;
-    mOnLoopStateId = nullptr;
 }

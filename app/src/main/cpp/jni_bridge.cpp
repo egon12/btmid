@@ -2,8 +2,7 @@
 #include <utility>
 #include "AudioGraph.h"
 #include "instruments/SampleDrum.h"
-#include "outputs/OboeEngine.h"
-#include "outputs/WifiEngine.h"
+#include "outputs/OboeOutput.h"
 #include "PianoBenchmark.h"
 
 #define GRAPH(ptr) reinterpret_cast<AudioGraph*>(ptr)
@@ -128,17 +127,12 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz, jlong ptr,
                                                         jint engine_id, jstring ip) {
-
     if (engine_id == 1) {
-        std::unique_ptr<AudioEngine> o = std::make_unique<OboeEngine>();
-        GRAPH(ptr)->setEngine(std::move(o));
-
+        GRAPH(ptr)->setEngine(1, "", 0);
     } else if (engine_id == 2) {
-
         const char *cip = env->GetStringUTFChars(ip, nullptr);
-
-        std::unique_ptr<AudioEngine> o = std::make_unique<WifiEngine>(cip, 5004);
+        std::string host(cip);
         env->ReleaseStringUTFChars(ip, cip);
-        GRAPH(ptr)->setEngine(std::move(o));
+        GRAPH(ptr)->setEngine(2, host, 5004);
     }
 }

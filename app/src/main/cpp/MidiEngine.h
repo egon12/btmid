@@ -1,4 +1,5 @@
 #pragma once
+
 #include <amidi/AMidi.h>
 #include <jni.h>
 #include <atomic>
@@ -6,51 +7,69 @@
 #include "SpscRing.h"
 #include "LoopRecorder.h"
 
-// Partial AudioEngine implementation shared by OboeEngine and WifiEngine:
+class UICallback;
+
+// Partial AudioEngine implementation shared by OboeOutput and WifiEngine:
 //   - channel-indexed instrument routing (mChannels[16])
 //   - AMidi port open/close
-//   - JNI callback registration
 //   - pollMidi() / renderChannels() helpers for subclass render loops
 class MidiEngine : public AudioEngine {
 public:
     MidiEngine();
+
     ~MidiEngine() override = default;
 
-    MidiEngine(const MidiEngine&) = delete;
-    MidiEngine& operator=(const MidiEngine&) = delete;
+    MidiEngine(const MidiEngine &) = delete;
 
-    void setInstrument(int channel, Instrument* instrument) override;
+    MidiEngine &operator=(const MidiEngine &) = delete;
+
+    void start() override {}
+
+    void stop() override {}
+
+    void setInstrument(int channel, Instrument *instrument) override;
+
     void noteOn(int channel, int note, int velocity) override;
+
     void noteOff(int channel, int note) override;
+
     void controlChange(int channel, int cc, int value) override;
+
     void loopStartRecord() override;
-    void loopStopRecord()  override;
-    void loopClear()       override;
-    int  loopState()       override;
+
+    void loopStopRecord() override;
+
+    void loopClear() override;
+
+    int loopState() override;
+
     void loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) override;
-    void setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) override;
+
+    void setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) override;
+
     void clearOutputPort() override;
 
-protected:
-    // Drain all pending AMidi messages, route to noteOn/Off/CC, push to mEventQueue.
+    void setUICallback(UICallback *callback);
+
     void pollMidi();
+
+    // Drain all pending AMidi messages, route to noteOn/Off/CC, push to mEventQueue.
     // Render each unique instrument in mChannels into buf (deduplicates by pointer).
-    void renderChannels(float* buf, int32_t frames);
+    void render(float *buf, int32_t frames);
 
-    std::atomic<Instrument*>      mChannels[16] {};
+protected:
 
-    AMidiDevice*                  mNativeDevice  {nullptr};
-    std::atomic<AMidiOutputPort*> mMidiPort      {nullptr};
-    uint8_t                       mRunningStatus {0};
+    std::atomic<Instrument *> mChannels[16]{};
 
-    SpscRing<MidiEvt, 256>        mEventQueue;
+    AMidiDevice *mNativeDevice{nullptr};
+    std::atomic<AMidiOutputPort *> mMidiPort{nullptr};
+    uint8_t mRunningStatus{0};
+
+    SpscRing<MidiEvt, 256> mEventQueue;
 
     void advanceLoop(int32_t frames);
 
     LoopRecorder mLoopRecorder;
 
-    JavaVM*    mJvm           {nullptr};
-    jobject    mMidiCallback  {nullptr};
-    jmethodID  mOnMidiEventId {nullptr};
-    jmethodID  mOnLoopStateId {nullptr};
+    UICallback *mUICallback{nullptr};
 };
