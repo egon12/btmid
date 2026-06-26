@@ -8,9 +8,9 @@ add_subdirectory(opus)
 add_library(btmid SHARED
 	MidiParser.cpp
 	LoopRecorder.cpp
-	ChannelEngine.cpp
-	OboeEngine.cpp
-	WifiEngine.cpp
+	MidiEngine.cpp
+	outputs/OboeEngine.cpp
+	outputs/WifiEngine.cpp
 	InstrumentRepository.cpp
 	AudioGraph.cpp
 	instruments/Piano.cpp

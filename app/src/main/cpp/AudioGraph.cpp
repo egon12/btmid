@@ -1,5 +1,5 @@
 #include "AudioGraph.h"
-#include "OboeEngine.h"
+#include "outputs/OboeEngine.h"
 
 AudioGraph::AudioGraph() : mEngine(std::make_unique<OboeEngine>()) {
     mRepository.setInstrument(*mEngine, 0, "piano");

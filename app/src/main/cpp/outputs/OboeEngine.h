@@ -3,9 +3,9 @@
 #include <memory>
 #include <atomic>
 #include <thread>
-#include "ChannelEngine.h"
+#include "../MidiEngine.h"
 
-class OboeEngine : public ChannelEngine, public oboe::AudioStreamDataCallback {
+class OboeEngine : public MidiEngine, public oboe::AudioStreamDataCallback {
 public:
     OboeEngine() = default;
     ~OboeEngine() override;

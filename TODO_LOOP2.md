@@ -23,7 +23,7 @@ Bugs found in the timestamp-based rewrite of `LoopRecorder`. Ordered by severity
 
 **File:** `app/src/main/cpp/LoopRecorder.cpp`
 
-`clear()` is called from the JNI/UI thread (via `ChannelEngine::loopClear()`). It calls
+`clear()` is called from the JNI/UI thread (via `MidiEngine::loopClear()`). It calls
 `mEventsRecorded.clear()` and `mEventsPlay.clear()` directly while the Oboe audio thread
 may be inside `advance()` (iterating `mEventsPlay`) or `onMidiEvent()` (pushing to
 `mEventsRecorded`). `std::vector` is not thread-safe; this is a data race and will crash.
@@ -99,7 +99,7 @@ garbage frame. All UI-triggered drum hits become permanently silent during playb
 
 ## Fix 4 — `onUiMidiEvent` hardcodes `channel=0`
 
-**Files:** `app/src/main/cpp/LoopRecorder.cpp`, `ChannelEngine.cpp`, `AudioGraph.cpp`
+**Files:** `app/src/main/cpp/LoopRecorder.cpp`, `MidiEngine.cpp`, `AudioGraph.cpp`
 
 The channel (9 for drums) is dropped in the call chain. Thread it through:
 
@@ -117,8 +117,8 @@ void AudioGraph::noteOff(int ch, int note) {
     if (ch == 9) mEngine->loopRecordEvent(MidiMsgType::NoteOff, ch, note, 0);
 }
 
-// ChannelEngine.cpp — forward ch
-void ChannelEngine::loopRecordEvent(MidiMsgType type, int ch, uint8_t note, uint8_t vel) {
+// MidiEngine.cpp — forward ch
+void MidiEngine::loopRecordEvent(MidiMsgType type, int ch, uint8_t note, uint8_t vel) {
     mLoopRecorder.onUiMidiEvent(type, static_cast<uint8_t>(ch), note, vel);
 }
 
@@ -288,7 +288,7 @@ deferred-flag pattern from Fix 1.
 
 - `FrameMidiMsg` in `LoopRecorder.h` is a typo — rename to `FrameMidiMsg`.
 - The CC 93/95 control-surface mapping inside `LoopRecorder::onMidiEvent` leaks transport
-  concerns into the recorder. Consider moving to `ChannelEngine::pollMidi()` so the
+  concerns into the recorder. Consider moving to `MidiEngine::pollMidi()` so the
   mapping is visible and configurable without touching the recorder.
 - `timestamp + 100` in the `Armed` branch is unexplained. If the intent is
   "+100 frames" it should be `+100LL * 1000000000LL / kSampleRate` ns (~2 ms at 48 kHz).

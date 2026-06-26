@@ -1,4 +1,4 @@
-#include "ChannelEngine.h"
+#include "MidiEngine.h"
 #include "MidiParser.h"
 #include <android/log.h>
 
@@ -6,36 +6,36 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-ChannelEngine::ChannelEngine() {
+MidiEngine::MidiEngine() {
     mLoopRecorder.onStateChange = [this](LoopRecorder::State s) {
         mEventQueue.push({0xFF, static_cast<uint8_t>(s), 0, 0});
     };
 }
 
-void ChannelEngine::setInstrument(int channel, Instrument *instrument) {
+void MidiEngine::setInstrument(int channel, Instrument *instrument) {
     if (channel >= 0 && channel < 16)
         mChannels[channel].store(instrument, std::memory_order_release);
 }
 
-void ChannelEngine::noteOn(int channel, int note, int velocity) {
+void MidiEngine::noteOn(int channel, int note, int velocity) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOn(channel, note, velocity);
 }
 
-void ChannelEngine::noteOff(int channel, int note) {
+void MidiEngine::noteOff(int channel, int note) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOff(channel, note);
 }
 
-void ChannelEngine::controlChange(int channel, int cc, int value) {
+void MidiEngine::controlChange(int channel, int cc, int value) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->controlChange(channel, cc, value);
 }
 
-void ChannelEngine::pollMidi() {
+void MidiEngine::pollMidi() {
     AMidiOutputPort *midiPort = mMidiPort.load(std::memory_order_acquire);
     if (!midiPort) return;
 
@@ -65,7 +65,7 @@ void ChannelEngine::pollMidi() {
     }
 }
 
-void ChannelEngine::renderChannels(float *buf, int32_t frames) {
+void MidiEngine::renderChannels(float *buf, int32_t frames) {
     Instrument *rendered[16]{};
     int renderCount = 0;
     for (auto &ch: mChannels) {
@@ -84,7 +84,7 @@ void ChannelEngine::renderChannels(float *buf, int32_t frames) {
     }
 }
 
-void ChannelEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
+void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
     clearOutputPort();
 
     media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
@@ -113,19 +113,19 @@ void ChannelEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallbac
     LOGD("AMidi output port set");
 }
 
-void ChannelEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
+void MidiEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
 
-void ChannelEngine::loopStopRecord() { mLoopRecorder.stopRecording(); }
+void MidiEngine::loopStopRecord() { mLoopRecorder.stopRecording(); }
 
-void ChannelEngine::loopClear() { mLoopRecorder.clear(); }
+void MidiEngine::loopClear() { mLoopRecorder.clear(); }
 
-int ChannelEngine::loopState() { return static_cast<int>(mLoopRecorder.state()); }
+int MidiEngine::loopState() { return static_cast<int>(mLoopRecorder.state()); }
 
-void ChannelEngine::loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
+void MidiEngine::loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
     mLoopRecorder.onUiMidiEvent(type, channel, note, vel);
 }
 
-void ChannelEngine::advanceLoop(int32_t frames) {
+void MidiEngine::advanceLoop(int32_t frames) {
     mLoopRecorder.advance(frames, [this](MidiMsg msg) {
         Instrument *inst = mChannels[msg.channel].load(std::memory_order_acquire);
         if (!inst) return;
@@ -144,7 +144,7 @@ void ChannelEngine::advanceLoop(int32_t frames) {
     });
 }
 
-void ChannelEngine::clearOutputPort() {
+void MidiEngine::clearOutputPort() {
     AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
     if (port) AMidiOutputPort_close(port);
     if (mNativeDevice) {

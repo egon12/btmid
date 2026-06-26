@@ -2,8 +2,8 @@
 #include <utility>
 #include "AudioGraph.h"
 #include "instruments/SampleDrum.h"
-#include "OboeEngine.h"
-#include "WifiEngine.h"
+#include "outputs/OboeEngine.h"
+#include "outputs/WifiEngine.h"
 #include "PianoBenchmark.h"
 
 #define GRAPH(ptr) reinterpret_cast<AudioGraph*>(ptr)

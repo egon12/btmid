@@ -45,7 +45,7 @@ void OboeEngine::stop() {
 }
 
 void OboeEngine::setOutputPort(JNIEnv* env, jobject jDevice, jobject jCallback) {
-    ChannelEngine::setOutputPort(env, jDevice, jCallback);
+    MidiEngine::setOutputPort(env, jDevice, jCallback);
     if (mMidiPort.load(std::memory_order_acquire)) {
         mDispatchRunning.store(true, std::memory_order_relaxed);
         mDispatchThread = std::thread(&OboeEngine::dispatchLoop, this);
@@ -56,7 +56,7 @@ void OboeEngine::clearOutputPort() {
     if (mDispatchRunning.exchange(false)) {
         if (mDispatchThread.joinable()) mDispatchThread.join();
     }
-    ChannelEngine::clearOutputPort();
+    MidiEngine::clearOutputPort();
 }
 
 void OboeEngine::dispatchLoop() {

@@ -1,12 +1,12 @@
 #pragma once
-#include "opus/include/opus.h"
+#include "opus.h"
 #include <atomic>
 #include <thread>
 #include <string>
 #include <netinet/in.h>
-#include "ChannelEngine.h"
+#include "../MidiEngine.h"
 
-class WifiEngine : public ChannelEngine {
+class WifiEngine : public MidiEngine {
 public:
     WifiEngine(std::string host, int port);
     ~WifiEngine() override;

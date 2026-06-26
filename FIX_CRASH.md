@@ -2,7 +2,7 @@
 
 ## Context
 
-When the user taps Disconnect, `BleMidiConnection.disconnect()` calls `NativeAudioEngine.clearOutputPort()` but does **not** stop the Oboe audio stream first. The Oboe audio thread keeps running `onAudioReady()` → `pollMidi()`, which atomically loads `mMidiPort` and then calls `AMidiOutputPort_receive()`. Meanwhile, `ChannelEngine::clearOutputPort()` atomically exchanges `mMidiPort` to `nullptr` and closes the port. There is a window where the audio thread has already loaded the port pointer but hasn't called `AMidiOutputPort_receive()` yet — by the time it does, the port is closed. This is a use-after-close / use-after-free crash.
+When the user taps Disconnect, `BleMidiConnection.disconnect()` calls `NativeAudioEngine.clearOutputPort()` but does **not** stop the Oboe audio stream first. The Oboe audio thread keeps running `onAudioReady()` → `pollMidi()`, which atomically loads `mMidiPort` and then calls `AMidiOutputPort_receive()`. Meanwhile, `MidiEngine::clearOutputPort()` atomically exchanges `mMidiPort` to `nullptr` and closes the port. There is a window where the audio thread has already loaded the port pointer but hasn't called `AMidiOutputPort_receive()` yet — by the time it does, the port is closed. This is a use-after-close / use-after-free crash.
 
 **Race condition:**
 ```
@@ -18,8 +18,8 @@ pollMidi():
 
 - `app/src/main/java/org/gilbertxenodike/btmid/bluetooth/BleMidiConnection.kt` line 62–69:
   `disconnect()` calls `clearOutputPort()` but never calls `stop()`.
-- `app/src/main/cpp/ChannelEngine.cpp` line 32–59: `pollMidi()` loads and uses `mMidiPort` in the audio thread.
-- `app/src/main/cpp/ChannelEngine.cpp` line 140–142: `clearOutputPort()` closes the port atomically, but doesn't wait for the audio thread to finish its current `pollMidi()` invocation.
+- `app/src/main/cpp/MidiEngine.cpp` line 32–59: `pollMidi()` loads and uses `mMidiPort` in the audio thread.
+- `app/src/main/cpp/MidiEngine.cpp` line 140–142: `clearOutputPort()` closes the port atomically, but doesn't wait for the audio thread to finish its current `pollMidi()` invocation.
 
 ## Fix
 

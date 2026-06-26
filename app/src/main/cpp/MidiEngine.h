@@ -11,13 +11,13 @@
 //   - AMidi port open/close
 //   - JNI callback registration
 //   - pollMidi() / renderChannels() helpers for subclass render loops
-class ChannelEngine : public AudioEngine {
+class MidiEngine : public AudioEngine {
 public:
-    ChannelEngine();
-    ~ChannelEngine() override = default;
+    MidiEngine();
+    ~MidiEngine() override = default;
 
-    ChannelEngine(const ChannelEngine&) = delete;
-    ChannelEngine& operator=(const ChannelEngine&) = delete;
+    MidiEngine(const MidiEngine&) = delete;
+    MidiEngine& operator=(const MidiEngine&) = delete;
 
     void setInstrument(int channel, Instrument* instrument) override;
     void noteOn(int channel, int note, int velocity) override;
