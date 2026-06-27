@@ -2,12 +2,12 @@
 #include <jni.h>
 #include <memory>
 #include <string>
-#include "AudioEngine.h"
 #include "InstrumentRepository.h"
 
 class MidiEngine;
 class UICallback;
 class OboeOutput;
+class WifiOutput;
 
 class AudioGraph {
 public:
@@ -36,11 +36,11 @@ public:
     void loopStopRecord();
     void loopClear();
     int  loopState();
-    void loopRecordEvent(uint8_t type, uint8_t note, uint8_t vel);
 
 private:
     InstrumentRepository         mRepository;
     std::unique_ptr<UICallback>  mUICallback;
     std::shared_ptr<MidiEngine>  mMidiEngine;
     std::unique_ptr<OboeOutput>  mOboeOutput;
+    std::unique_ptr<WifiOutput>  mWifiOutput;
 };

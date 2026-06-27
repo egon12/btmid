@@ -1,5 +1,4 @@
 #include "InstrumentRepository.h"
-#include "AudioEngine.h"
 #include "instruments/Piano.h"
 #include "instruments/NoiseDrum.h"
 #include "instruments/FmDrum.h"
@@ -50,7 +49,7 @@ Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
     return ptr;
 }
 
-void InstrumentRepository::setInstrument(AudioEngine& engine, int channel, const std::string& id) {
+void InstrumentRepository::setInstrument(MidiEngine& engine, int channel, const std::string& id) {
     Instrument* inst = getOrCreate(id);
     if (inst) engine.setInstrument(channel, inst);
 }

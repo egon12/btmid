@@ -11,7 +11,7 @@ add_library(btmid SHARED
 	MidiEngine.cpp
 	UICallback.cpp
 	outputs/OboeOutput.cpp
-	outputs/WifiEngine.cpp
+	outputs/WifiOutput.cpp
 	InstrumentRepository.cpp
 	AudioGraph.cpp
 	instruments/Piano.cpp

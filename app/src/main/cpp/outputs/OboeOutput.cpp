@@ -43,8 +43,6 @@ void OboeOutput::stop() {
 
 oboe::DataCallbackResult
 OboeOutput::onAudioReady(oboe::AudioStream *, void *audioData, int32_t numFrames) {
-    mEngine->pollMidi();
-
     auto *buf = static_cast<float *>(audioData);
     for (int i = 0; i < numFrames; ++i) buf[i] = 0.0f;
 

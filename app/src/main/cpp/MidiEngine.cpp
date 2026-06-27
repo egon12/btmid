@@ -8,7 +8,7 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 MidiEngine::MidiEngine() {
-    mLoopRecorder.onStateChange = [this](LoopRecorder::State s) {
+    loopRecorder.onStateChange = [this](LoopRecorder::State s) {
         MidiEvt evt{0xFF, static_cast<uint8_t>(s), 0, 0};
         mEventQueue.push(evt);
         if (mUICallback) mUICallback->onMidiEvent(evt);
@@ -24,18 +24,40 @@ void MidiEngine::noteOn(int channel, int note, int velocity) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOn(channel, note, velocity);
+
+    auto msg = MidiMsg{MidiMsgType::NoteOn,
+                       static_cast<uint8_t>(channel),
+                       static_cast<uint8_t>(note),
+                       static_cast<uint8_t>(velocity)};
+
+    loopRecorder.onUiMidiEvent(msg);
 }
 
 void MidiEngine::noteOff(int channel, int note) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->noteOff(channel, note);
+
+    auto msg = MidiMsg{MidiMsgType::NoteOff,
+                       static_cast<uint8_t>(channel),
+                       static_cast<uint8_t>(note),
+                       static_cast<uint8_t>(0)};
+
+    loopRecorder.onUiMidiEvent(msg);
+
 }
 
 void MidiEngine::controlChange(int channel, int cc, int value) {
     if (channel < 0 || channel >= 16) return;
     Instrument *inst = mChannels[channel].load(std::memory_order_acquire);
     if (inst) inst->controlChange(channel, cc, value);
+
+    auto msg = MidiMsg{MidiMsgType::NoteOff,
+                       static_cast<uint8_t>(channel),
+                       static_cast<uint8_t>(cc),
+                       static_cast<uint8_t>(value)};
+
+    loopRecorder.onUiMidiEvent(msg);
 }
 
 void MidiEngine::setUICallback(UICallback *callback) {
@@ -105,7 +127,7 @@ void MidiEngine::pollMidi() {
             else if (m.type == MidiMsgType::CC)
                 controlChange(m.channel, m.data1, m.data2);
 
-            mLoopRecorder.onMidiEvent(m, timestamp);
+            loopRecorder.onMidiEvent(m, timestamp);
 
             MidiEvt evt{m.channel, static_cast<uint8_t>(m.type),
                         m.data1, m.data2};
@@ -116,6 +138,12 @@ void MidiEngine::pollMidi() {
 }
 
 void MidiEngine::render(float *buf, int32_t frames) {
+    pollMidi();
+    advanceLoop(frames);
+    renderAudio(buf, frames);
+}
+
+void MidiEngine::renderAudio(float *buf, int32_t frames) {
     Instrument *rendered[16]{};
     int renderCount = 0;
     for (auto &ch: mChannels) {
@@ -134,20 +162,8 @@ void MidiEngine::render(float *buf, int32_t frames) {
     }
 }
 
-void MidiEngine::loopStartRecord() { mLoopRecorder.startRecording(); }
-
-void MidiEngine::loopStopRecord() { mLoopRecorder.stopRecording(); }
-
-void MidiEngine::loopClear() { mLoopRecorder.clear(); }
-
-int MidiEngine::loopState() { return static_cast<int>(mLoopRecorder.state()); }
-
-void MidiEngine::loopRecordEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
-    mLoopRecorder.onUiMidiEvent(type, channel, note, vel);
-}
-
 void MidiEngine::advanceLoop(int32_t frames) {
-    mLoopRecorder.advance(frames, [this](MidiMsg msg) {
+    loopRecorder.advance(frames, [this](MidiMsg msg) {
         Instrument *inst = mChannels[msg.channel].load(std::memory_order_acquire);
         if (!inst) return;
 

@@ -19,9 +19,9 @@ AudioGraph
 └── unique_ptr<AudioEngine>
     └── MidiEngine
         ├── mChannels[16]
-        ├── mLoopRecorder          ← owned here
-        ├── pollMidi() → mLoopRecorder.onMidiEvent()
-        ├── advanceLoop() → mLoopRecorder.advance()
+        ├── loopRecorder          ← owned here
+        ├── pollMidi() → loopRecorder.onMidiEvent()
+        ├── advanceLoop() → loopRecorder.advance()
         └── loopStartRecord/StopRecord/Clear/State/RecordEvent
 ```
 
@@ -59,7 +59,7 @@ AudioGraph
 ### Step 2: Update `MidiEngine.h`
 
 - Remove `#include "LoopRecorder.h"`
-- Remove `LoopRecorder mLoopRecorder` member
+- Remove `LoopRecorder loopRecorder` member
 - Remove loop method overrides: `loopStartRecord`, `loopStopRecord`, `loopClear`, `loopState`, `loopRecordEvent`
 - Add `std::function<void(const MidiMsg&, int64_t)> mMidiObserver` member
 - Add `std::function<void(int32_t)> mAdvanceCallback` member
@@ -68,10 +68,10 @@ AudioGraph
 
 ### Step 3: Update `MidiEngine.cpp`
 
-- Remove constructor body (only set up `mLoopRecorder.onStateChange`)
+- Remove constructor body (only set up `loopRecorder.onStateChange`)
 - Remove `loopStartRecord()`, `loopStopRecord()`, `loopClear()`, `loopState()`, `loopRecordEvent()` implementations
-- In `pollMidi()`: replace `mLoopRecorder.onMidiEvent(m, timestamp)` with `mMidiObserver(m, timestamp)` (guard with null check)
-- Rewrite `advanceLoop()`: replace `mLoopRecorder.advance(frames, ...)` with `mAdvanceCallback(frames)` (guard with null check)
+- In `pollMidi()`: replace `loopRecorder.onMidiEvent(m, timestamp)` with `mMidiObserver(m, timestamp)` (guard with null check)
+- Rewrite `advanceLoop()`: replace `loopRecorder.advance(frames, ...)` with `mAdvanceCallback(frames)` (guard with null check)
 - Implement `setMidiObserver()`: store into `mMidiObserver`
 - Implement `setAdvanceCallback()`: store into `mAdvanceCallback`
 - Implement `pushUiEvent()`: push `MidiEvt{ch, type, d1, d2}` into `mEventQueue`
@@ -79,27 +79,27 @@ AudioGraph
 ### Step 4: Update `AudioGraph.h`
 
 - Add `#include "LoopRecorder.h"`
-- Add `LoopRecorder mLoopRecorder` member (declared **between** `mRepository` and `mEngine`)
+- Add `LoopRecorder loopRecorder` member (declared **between** `mRepository` and `mEngine`)
 - Add private method `void wireEngine()`
 
 Member declaration order (reverse destruction order):
 ```cpp
 InstrumentRepository         mRepository;    // dies last
-LoopRecorder                 mLoopRecorder;  // dies before engine
+LoopRecorder                 loopRecorder;  // dies before engine
 std::unique_ptr<AudioEngine> mEngine;        // dies first
 ```
 
 ### Step 5: Update `AudioGraph.cpp`
 
 - Implement `wireEngine()`:
-  - `mEngine->setMidiObserver(...)` → calls `mLoopRecorder.onMidiEvent(msg, timestamp)`
-  - `mEngine->setAdvanceCallback(...)` → calls `mLoopRecorder.advance(frames, fire)` where `fire` routes through `mEngine->noteOn/Off/CC`
-  - `mLoopRecorder.onStateChange = ...` → calls `mEngine->pushUiEvent(0xFF, state, 0, 0)`
+  - `mEngine->setMidiObserver(...)` → calls `loopRecorder.onMidiEvent(msg, timestamp)`
+  - `mEngine->setAdvanceCallback(...)` → calls `loopRecorder.advance(frames, fire)` where `fire` routes through `mEngine->noteOn/Off/CC`
+  - `loopRecorder.onStateChange = ...` → calls `mEngine->pushUiEvent(0xFF, state, 0, 0)`
 - Call `wireEngine()` in constructor (after creating default engine)
 - Call `wireEngine()` in `setEngine()` (after swapping engine)
-- Implement `loopStartRecord/StopRecord/Clear/State` directly on `mLoopRecorder`
-- Implement `loopRecordEvent()` → `mLoopRecorder.onUiMidiEvent()`
-- In `noteOn/Off`: call `mLoopRecorder.onUiMidiEvent()` directly instead of `mEngine->loopRecordEvent()`
+- Implement `loopStartRecord/StopRecord/Clear/State` directly on `loopRecorder`
+- Implement `loopRecordEvent()` → `loopRecorder.onUiMidiEvent()`
+- In `noteOn/Off`: call `loopRecorder.onUiMidiEvent()` directly instead of `mEngine->loopRecordEvent()`
 
 ### Step 6: Verify no changes needed
 

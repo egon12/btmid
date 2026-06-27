@@ -119,7 +119,7 @@ void AudioGraph::noteOff(int ch, int note) {
 
 // MidiEngine.cpp — forward ch
 void MidiEngine::loopRecordEvent(MidiMsgType type, int ch, uint8_t note, uint8_t vel) {
-    mLoopRecorder.onUiMidiEvent(type, static_cast<uint8_t>(ch), note, vel);
+    loopRecorder.onUiMidiEvent(type, static_cast<uint8_t>(ch), note, vel);
 }
 
 // LoopRecorder.cpp — use ch instead of hardcoded 0

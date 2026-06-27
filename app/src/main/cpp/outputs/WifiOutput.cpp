@@ -1,5 +1,5 @@
-#include "WifiEngine.h"
-#include "../UICallback.h"
+#include "WifiOutput.h"
+#include "../MidiEngine.h"
 #include <android/log.h>
 #include <ctime>
 #include <sys/socket.h>
@@ -9,19 +9,18 @@
 #include <cstring>
 #include <cerrno>
 
-#define LOG_TAG "WifiEngine"
+#define LOG_TAG "WifiOutput"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-WifiEngine::WifiEngine(std::string host, int port)
-        : mHost(std::move(host)), mPort(port) {}
+WifiOutput::WifiOutput(std::shared_ptr<MidiEngine> engine, std::string host, int port)
+        : mEngine(std::move(engine)), mHost(std::move(host)), mPort(port) {}
 
-WifiEngine::~WifiEngine() {
+WifiOutput::~WifiOutput() {
     stop();
-    clearOutputPort();
 }
 
-void WifiEngine::start() {
+void WifiOutput::start() {
     stop();
 
     int error = 0;
@@ -54,14 +53,12 @@ void WifiEngine::start() {
     }
 
     mUdpRunning.store(true, std::memory_order_relaxed);
-    mUdpThread = std::thread(&WifiEngine::udpRenderLoop, this);
-    if (mUICallback) mUICallback->start();
+    mUdpThread = std::thread(&WifiOutput::udpRenderLoop, this);
     LOGD("UDP audio streaming started — %s:%d", mHost.c_str(), mPort);
 }
 
-void WifiEngine::stop() {
+void WifiOutput::stop() {
     if (mUdpRunning.exchange(false)) {
-        if (mUICallback) mUICallback->stop();
         if (mUdpThread.joinable()) mUdpThread.join();
     }
     if (mUdpSocket >= 0) {
@@ -74,8 +71,8 @@ void WifiEngine::stop() {
     }
 }
 
-void WifiEngine::udpRenderLoop() {
-    constexpr int kFramesPerBuf = 120;  // 10 ms — valid Opus frame size
+void WifiOutput::udpRenderLoop() {
+    constexpr int kFramesPerBuf = 120;
     float buf[kFramesPerBuf];
 
     struct timespec nextWake;
@@ -83,11 +80,9 @@ void WifiEngine::udpRenderLoop() {
     const int64_t intervalNs = static_cast<int64_t>(kFramesPerBuf) * 1'000'000'000LL / kSampleRate;
 
     while (mUdpRunning.load(std::memory_order_acquire)) {
-        pollMidi();
-        advanceLoop(kFramesPerBuf);
-
         for (float& s : buf) s = 0.0f;
-        render(buf, kFramesPerBuf);
+
+        mEngine->render(buf, kFramesPerBuf);
 
         bool hasData = false;
         for (float s : buf) { if (s != 0.0f) { hasData = true; break; } }

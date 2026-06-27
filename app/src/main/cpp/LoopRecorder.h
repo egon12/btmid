@@ -39,7 +39,7 @@ public:
 
     void onMidiEvent(MidiMsg msg, int64_t timestamp);
 
-    void onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel);
+    void onUiMidiEvent(MidiMsg m);
 
 private:
     const float mTimestampToFrame = static_cast<float>(kSampleRate) / 1'000'000'000.0;

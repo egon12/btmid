@@ -3,8 +3,8 @@
 #include <string>
 #include <unordered_map>
 #include "Instrument.h"
+#include "MidiEngine.h"
 
-class AudioEngine;
 class SampleDrum;
 
 class InstrumentRepository {
@@ -13,7 +13,7 @@ public:
 
     // Lazy-create instrument by id and register it on the given channel.
     // Known ids: "piano", "noise_drum", "fm_drum", "sample_drum"
-    void setInstrument(AudioEngine& engine, int channel, const std::string& id);
+    void setInstrument(MidiEngine& engine, int channel, const std::string& id);
 
     void loadDrumSample(int id, const float* data, int len);
 

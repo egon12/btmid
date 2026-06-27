@@ -3,8 +3,8 @@
 #include <thread>
 #include <atomic>
 #include <jni.h>
-#include "AudioEngine.h"
 #include "SpscRing.h"
+#include "MidiEvt.h"
 
 class UICallback {
 public:

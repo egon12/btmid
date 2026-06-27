@@ -100,7 +100,7 @@ void LoopRecorder::onMidiEvent(MidiMsg msg, int64_t timestamp) {
     }
 }
 
-void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note, uint8_t vel) {
+void LoopRecorder::onUiMidiEvent(MidiMsg m) {
     auto s = state();
     if (s == State::Armed) {
         timespec t{};
@@ -109,7 +109,7 @@ void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note
 
         mStartRecordNs = ns;
         changeState(State::Recording);
-        mEventsRecorded.push_back({ns + 1000, MidiMsg{type, channel, note, vel}});
+        mEventsRecorded.push_back({ns + 1000, m});
         return;
     }
 
@@ -117,7 +117,7 @@ void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note
         timespec t{};
         auto res = clock_gettime(CLOCK_MONOTONIC, &t);
         auto ns = t.tv_sec * 1000000000L + t.tv_nsec;
-        mEventsRecorded.push_back({ns, MidiMsg{type, channel, note, vel}});
+        mEventsRecorded.push_back({ns, m});
     }
 
     if (s == State::Overdubbing) {
@@ -129,7 +129,7 @@ void LoopRecorder::onUiMidiEvent(MidiMsgType type, uint8_t channel, uint8_t note
         auto frame =
                 static_cast<int32_t>(static_cast<double>(elapsed) * mTimestampToFrame) % mLoopLength;
 
-        mEventsOverdubbed.push_back({frame, MidiMsg{type, channel, note, vel}});
+        mEventsOverdubbed.push_back({frame, m});
         return;
     }
 }
