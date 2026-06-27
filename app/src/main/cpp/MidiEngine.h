@@ -35,7 +35,7 @@ public:
 
     void controlChange(int channel, int cc, int value);
 
-    void setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback);
+    void setOutputPort(JNIEnv *env, jobject jDevice, jobject listener);
 
     void clearOutputPort();
 
@@ -47,6 +47,8 @@ public:
 
     LoopRecorder loopRecorder{};
 
+    UICallback *uiCallback{nullptr};
+
 protected:
     std::atomic<Instrument *> mChannels[16]{};
 
@@ -55,9 +57,6 @@ protected:
     uint8_t mRunningStatus{0};
 
     SpscRing<MidiEvt, 256> mEventQueue;
-
-
-    UICallback *mUICallback{nullptr};
 
     void pollMidi();
 

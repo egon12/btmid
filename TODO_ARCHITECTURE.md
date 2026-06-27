@@ -20,7 +20,7 @@ AudioGraph
 └── InstrumentRepository
 ```
 
-**Data flow**: `MidiEngine.pollMidi()` → pushes to `mEventQueue` → calls `mUICallback->onMidiEvent(evt)` → UICallback pushes to its own ring → UICallback dispatch thread drains ring → JNI callbacks to Java.
+**Data flow**: `MidiEngine.pollMidi()` → pushes to `mEventQueue` → calls `uiCallback->onMidiEvent(evt)` → UICallback pushes to its own ring → UICallback dispatch thread drains ring → JNI callbacks to Java.
 
 ## Step-by-Step Changes
 
@@ -33,11 +33,11 @@ AudioGraph
 
 ### 2. Update `MidiEngine.h/.cpp` — Delegate dispatch to UICallback
 
-- Add `UICallback* mUICallback = nullptr` member (non-owning)
+- Add `UICallback* uiCallback = nullptr` member (non-owning)
 - Add `void setUICallback(UICallback*)` method
-- In `pollMidi()`, after pushing to `mEventQueue`, also call `if (mUICallback) mUICallback->onMidiEvent(evt)`
-- Fix `setOutputPort()` — remove recursive self-call, call `mUICallback->setCallback(env, jCallback)` then `mUICallback->start()`
-- Fix `clearOutputPort()` — call `mUICallback->stop()`
+- In `pollMidi()`, after pushing to `mEventQueue`, also call `if (uiCallback) uiCallback->onMidiEvent(evt)`
+- Fix `setOutputPort()` — remove recursive self-call, call `uiCallback->setCallback(env, jCallback)` then `uiCallback->start()`
+- Fix `clearOutputPort()` — call `uiCallback->stop()`
 - **Remove** these members (all moved to UICallback):
   - `mDispatchThread`, `mDispatchRunning`
   - `mJvm`, `mMidiCallback`, `mOnMidiEventId`, `mOnLoopStateId`
@@ -51,18 +51,18 @@ AudioGraph
 
 ### 4. Update `WifiEngine.h/.cpp` — Wire UICallback
 
-- `start()` — call `mUICallback->start()` after spawning UDP thread
-- `stop()` — call `mUICallback->stop()` before joining thread
+- `start()` — call `uiCallback->start()` after spawning UDP thread
+- `stop()` — call `uiCallback->stop()` before joining thread
 - No other changes needed (inherits MidiEngine's `pollMidi()` which already calls UICallback)
 
 ### 5. Update `AudioGraph.h/.cpp` — Own and wire everything
 
 - Add `std::shared_ptr<MidiEngine> mMidiEngine` member
-- Add `std::unique_ptr<UICallback> mUICallback` member
+- Add `std::unique_ptr<UICallback> uiCallback` member
 - Constructor:
   1. Create `MidiEngine`
   2. Create `UICallback`
-  3. Wire: `mMidiEngine->setUICallback(mUICallback.get())`
+  3. Wire: `mMidiEngine->setUICallback(uiCallback.get())`
   4. Create `OboeOutput(mMidiEngine)`
 - `setEngine()`: stop old engine, stop UICallback, create new engine, rewire UICallback, start UICallback if MIDI port open
 

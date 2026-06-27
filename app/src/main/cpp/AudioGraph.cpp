@@ -94,6 +94,11 @@ void AudioGraph::closeMidiDevice() {
     mMidiEngine->clearOutputPort();
 }
 
+void AudioGraph::setLoopStateListener(JNIEnv *env, jobject jCallback) {
+    mMidiEngine->uiCallback->setLoopStateListener(env, jCallback);
+}
+
+
 void AudioGraph::loopStartRecord() { mMidiEngine->loopRecorder.startRecording(); }
 
 void AudioGraph::loopStopRecord() { mMidiEngine->loopRecorder.stopRecording(); }

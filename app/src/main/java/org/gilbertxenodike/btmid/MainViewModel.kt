@@ -55,7 +55,7 @@ data class UiState(
     val loopLengthSec: Float = 0f,
 )
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application) : AndroidViewModel(application), NativeAudioEngine.LoopStateListener {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
@@ -74,6 +74,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         NativeAudioEngine.start()
+        NativeAudioEngine.setLoopStateListener(this)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { sampleBank.load() }
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
@@ -250,5 +251,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
         NativeAudioEngine.start()
         _uiState.value = current.copy(engine = engine)
+    }
+
+    override fun onLoopState(state: Int) {
+        val ls = when (state) {
+            1 -> LoopState.Recording
+            2 -> LoopState.Playing
+            3 -> LoopState.Armed
+            4 -> LoopState.Overdubbing
+            else -> LoopState.Idle
+        }
+        _uiState.value = _uiState.value.copy(loopState = ls)
     }
 }

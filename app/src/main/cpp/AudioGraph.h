@@ -32,6 +32,7 @@ public:
     void noteOff(int channel, int note);
     void controlChange(int channel, int cc, int value);
 
+    void setLoopStateListener(JNIEnv* env, jobject jCallback);
     void loopStartRecord();
     void loopStopRecord();
     void loopClear();

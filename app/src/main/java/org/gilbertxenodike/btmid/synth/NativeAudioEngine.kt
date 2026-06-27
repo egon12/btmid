@@ -12,8 +12,12 @@ object NativeAudioEngine {
 
     interface MidiEventListener {
         fun onMidiEvent(channel: Int, type: Int, data1: Int, data2: Int)
-        fun onLoopState(state: Int) {}
     }
+
+    interface LoopStateListener {
+        fun onLoopState(state: Int)
+    }
+
 
     fun start() = start(ptr)
     fun stop() = stop(ptr)
@@ -36,6 +40,7 @@ object NativeAudioEngine {
 
     fun clearOutputPort() = clearOutputPort(ptr)
 
+    fun setLoopStateListener(callback: LoopStateListener) = setLoopStateListener(ptr, callback)
     fun loopStartRecord() = loopStartRecord(ptr)
     fun loopStopRecord()  = loopStopRecord(ptr)
     fun loopClear()       = loopClear(ptr)
@@ -58,6 +63,7 @@ object NativeAudioEngine {
     private external fun setOutputPort(ptr: Long, device: MidiDevice, callback: MidiEventListener)
     private external fun clearOutputPort(ptr: Long)
 
+    private external fun setLoopStateListener(ptr: Long, callback: LoopStateListener)
     private external fun loopStartRecord(ptr: Long)
     private external fun loopStopRecord(ptr: Long)
     private external fun loopClear(ptr: Long)

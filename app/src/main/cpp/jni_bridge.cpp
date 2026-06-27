@@ -96,6 +96,12 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *e
     return env->NewStringUTF(result.c_str());
 }
 
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setLoopStateListener(
+        JNIEnv *env, jobject, jlong ptr, jobject listener) {
+    GRAPH(ptr)->setLoopStateListener(env, listener);
+}
+
 
 JNIEXPORT void JNICALL
 Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStartRecord(
@@ -125,8 +131,9 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopState(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz, jlong ptr,
-                                                        jint engine_id, jstring ip) {
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz,
+                                                                 jlong ptr,
+                                                                 jint engine_id, jstring ip) {
     if (engine_id == 1) {
         GRAPH(ptr)->setEngine(1, "", 0);
     } else if (engine_id == 2) {

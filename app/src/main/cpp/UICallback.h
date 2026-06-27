@@ -5,16 +5,25 @@
 #include <jni.h>
 #include "SpscRing.h"
 #include "MidiEvt.h"
+#include "LoopRecorder.h"
 
 class UICallback {
 public:
-    void setCallback(JNIEnv *env, jobject callback);
+    UICallback() = default;
 
-    void start();
-
-    void stop();
+    void setMidiEventListener(JNIEnv *env, jobject listener);
 
     void onMidiEvent(MidiEvt evt);
+
+    void clearMidiEventListener();
+
+    void setLoopStateListener(JNIEnv *env, jobject listener);
+
+    void onLoopState(LoopRecorder::State s);
+
+    void clearLoopStateListener();
+
+    void stop();
 
 private:
     SpscRing<MidiEvt, 256> mEventQueue;
@@ -25,5 +34,10 @@ private:
     JavaVM *mJvm{nullptr};
     jobject mMidiCallback{nullptr};
     jmethodID mOnMidiEventId{nullptr};
+
+    SpscRing<LoopRecorder::State, 16> mLoopStateQueue;
+    jobject mLoopStateListener{nullptr};
     jmethodID mOnLoopStateId{nullptr};
+    std::thread mLoopStateDispatchThread;
+    std::atomic<bool> mLoopStateDispatchRunning{false};
 };

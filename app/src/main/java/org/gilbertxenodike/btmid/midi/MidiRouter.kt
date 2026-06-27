@@ -27,8 +27,4 @@ class MidiRouter : NativeAudioEngine.MidiEventListener {
         }
         _events.tryEmit(event)
     }
-
-    override fun onLoopState(state: Int) {
-        _loopState.tryEmit(state)
-    }
 }

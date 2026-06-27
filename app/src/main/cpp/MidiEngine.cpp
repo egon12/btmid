@@ -9,9 +9,8 @@
 
 MidiEngine::MidiEngine() {
     loopRecorder.onStateChange = [this](LoopRecorder::State s) {
-        MidiEvt evt{0xFF, static_cast<uint8_t>(s), 0, 0};
-        mEventQueue.push(evt);
-        if (mUICallback) mUICallback->onMidiEvent(evt);
+        LOGD("LoopRecorder state change: %d", s);
+        if (uiCallback) uiCallback->onLoopState(s);
     };
 }
 
@@ -61,10 +60,10 @@ void MidiEngine::controlChange(int channel, int cc, int value) {
 }
 
 void MidiEngine::setUICallback(UICallback *callback) {
-    mUICallback = callback;
+    uiCallback = callback;
 }
 
-void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) {
+void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject listener) {
     clearOutputPort();
 
     media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
@@ -83,17 +82,16 @@ void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject jCallback) 
     mMidiPort.store(port, std::memory_order_release);
     mRunningStatus = 0;
 
-    if (mUICallback) {
-        mUICallback->setCallback(env, jCallback);
-        mUICallback->start();
+    if (uiCallback) {
+        uiCallback->setMidiEventListener(env, listener);
     }
 
     LOGD("AMidi output port set");
 }
 
 void MidiEngine::clearOutputPort() {
-    if (mUICallback) {
-        mUICallback->stop();
+    if (uiCallback) {
+        uiCallback->clearMidiEventListener();
     }
 
     AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);
@@ -132,7 +130,7 @@ void MidiEngine::pollMidi() {
             MidiEvt evt{m.channel, static_cast<uint8_t>(m.type),
                         m.data1, m.data2};
             mEventQueue.push(evt);
-            if (mUICallback) mUICallback->onMidiEvent(evt);
+            if (uiCallback) uiCallback->onMidiEvent(evt);
         }
     }
 }
