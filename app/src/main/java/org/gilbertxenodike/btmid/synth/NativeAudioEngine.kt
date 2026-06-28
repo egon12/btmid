@@ -1,7 +1,7 @@
 package org.gilbertxenodike.btmid.synth
 
 import android.media.midi.MidiDevice
-import org.gilbertxenodike.btmid.AudioEngine
+import org.gilbertxenodike.btmid.AudioOutput
 
 object NativeAudioEngine {
     init {
@@ -28,10 +28,10 @@ object NativeAudioEngine {
     fun setInstrument(channel: Int, name: String) = setInstrument(ptr, channel, name)
     fun setDrumBackend(backendId: Int) = setDrumBackend(ptr, backendId)
 
-    fun setOutput(audioEngine: AudioEngine) {
-        when (audioEngine) {
-            AudioEngine.Oboe -> setOutput(ptr, 1, "")
-            is AudioEngine.Wifi -> setOutput(ptr, 2, audioEngine.host)
+    fun setOutput(audioOutput: AudioOutput) {
+        when (audioOutput) {
+            AudioOutput.Oboe -> setOutput(ptr, 1, "")
+            is AudioOutput.Wifi -> setOutput(ptr, 2, audioOutput.host)
         }
     }
 

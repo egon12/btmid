@@ -120,7 +120,7 @@ void MidiEngine::pollMidi() {
 
             MidiEvt evt{m.channel, static_cast<uint8_t>(m.type),
                         m.data1, m.data2};
-            mEventQueue.push(evt);
+
             uiCallback.onMidiEvent(evt);
         }
     }

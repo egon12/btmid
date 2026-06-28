@@ -30,9 +30,9 @@ enum class KeyboardType { Piano, Poly, Mono }
 enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
 
-sealed class AudioEngine {
-    object Oboe : AudioEngine()
-    data class Wifi(val host: String, val port: Int) : AudioEngine()
+sealed class AudioOutput {
+    object Oboe : AudioOutput()
+    data class Wifi(val host: String, val port: Int) : AudioOutput()
 }
 
 data class DeviceUiState(val address: String, val name: String)
@@ -47,7 +47,7 @@ data class UiState(
     val midiActivityPulse: Boolean = false,
     val drumBackend: DrumBackend = DrumBackend.Noise,
     val samplesLoaded: Boolean = false,
-    val engine: AudioEngine = AudioEngine.Oboe,
+    val engine: AudioOutput = AudioOutput.Oboe,
     val selectEngineDialogVisible: Boolean = false,
     val keyboardType: KeyboardType = KeyboardType.Piano,
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
@@ -55,7 +55,8 @@ data class UiState(
     val loopLengthSec: Float = 0f,
 )
 
-class MainViewModel(application: Application) : AndroidViewModel(application), NativeAudioEngine.LoopStateListener {
+class MainViewModel(application: Application) : AndroidViewModel(application),
+    NativeAudioEngine.LoopStateListener {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
@@ -105,18 +106,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application), N
                     ),
                     midiActivityPulse = !current.midiActivityPulse,
                 )
-            }
-        }
-        viewModelScope.launch {
-            midiRouter.loopStateEvents.collect { state ->
-                val ls = when (state) {
-                    1 -> LoopState.Recording
-                    2 -> LoopState.Playing
-                    3 -> LoopState.Armed
-                    4 -> LoopState.Overdubbing
-                    else -> LoopState.Idle
-                }
-                _uiState.value = _uiState.value.copy(loopState = ls)
             }
         }
     }
@@ -240,16 +229,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application), N
         _uiState.value = _uiState.value.copy(loopState = LoopState.Idle, loopLengthSec = 0f)
     }
 
-    fun selectEngine(engine: AudioEngine) {
+    fun selectOutput(engine: AudioOutput) {
         val current = _uiState.value
-        val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
         NativeAudioEngine.setOutput(engine)
-        NativeAudioEngine.setInstrument(
-            0,
-            instrumentId(current.keyboardType, current.synthWaveform)
-        )
-        NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
-        NativeAudioEngine.start()
         _uiState.value = current.copy(engine = engine)
     }
 

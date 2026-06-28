@@ -54,8 +54,6 @@ protected:
     std::atomic<AMidiOutputPort *> mMidiPort{nullptr};
     uint8_t mRunningStatus{0};
 
-    SpscRing<MidiEvt, 256> mEventQueue;
-
     void pollMidi();
 
     void advanceLoop(int32_t frames);

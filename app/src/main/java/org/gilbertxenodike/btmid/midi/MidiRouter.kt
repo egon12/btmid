@@ -10,14 +10,10 @@ class MidiRouter : NativeAudioEngine.MidiEventListener {
     private val _events = MutableSharedFlow<MidiEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<MidiEvent> = _events.asSharedFlow()
 
-    private val _loopState = MutableSharedFlow<Int>(extraBufferCapacity = 8)
-    val loopStateEvents: SharedFlow<Int> = _loopState.asSharedFlow()
-
     // Called from the C++ dispatch thread after AMidi parses each event
     override fun onMidiEvent(channel: Int, type: Int, data1: Int, data2: Int) {
 
         Log.d("MidiRouter", "Loop onMidiEvent: $channel $type $data1 $data2")
-
 
         val event: MidiEvent = when (type) {
             0x80 -> MidiEvent.NoteOff(channel, data1, data2)

@@ -36,13 +36,12 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.gilbertxenodike.btmid.AudioEngine
+import org.gilbertxenodike.btmid.AudioOutput
 import org.gilbertxenodike.btmid.ConnectionStatus
 import org.gilbertxenodike.btmid.DeviceUiState
 import org.gilbertxenodike.btmid.DrumBackend
 import org.gilbertxenodike.btmid.KeyboardType
 import org.gilbertxenodike.btmid.SynthWaveform
-import org.gilbertxenodike.btmid.LoopState
 import org.gilbertxenodike.btmid.MidiEventUiModel
 import org.gilbertxenodike.btmid.UiState
 import org.gilbertxenodike.btmid.synth.NativeAudioEngine
@@ -60,7 +59,7 @@ fun MainScreen(
     onSetKeyboardType: (KeyboardType) -> Unit,
     onSetWaveform: (SynthWaveform) -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
-    onSelectEngine: (AudioEngine) -> Unit,
+    onSelectEngine: (AudioOutput) -> Unit,
     onLoopRecord: () -> Unit,
     onLoopStop: () -> Unit,
     onLoopClear: () -> Unit,

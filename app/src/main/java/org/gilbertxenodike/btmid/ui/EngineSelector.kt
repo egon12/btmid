@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import org.gilbertxenodike.btmid.AudioEngine
+import org.gilbertxenodike.btmid.AudioOutput
 
 enum class SelectedAudioEngine { Oboe, Wifi }
 
@@ -38,15 +38,15 @@ enum class SelectedAudioEngine { Oboe, Wifi }
 fun EngineSelector(
     selectEngineDialogVisible: Boolean,
     showSelectEngineDialog: (Boolean) -> Unit,
-    currentEngine: AudioEngine,        // The engine currently active in your app backend
-    onSelectEngine: (AudioEngine) -> Unit, // Dispatched ONLY when Save is clicked
+    currentEngine: AudioOutput,        // The engine currently active in your app backend
+    onSelectEngine: (AudioOutput) -> Unit, // Dispatched ONLY when Save is clicked
 ) {
     val sheetState = rememberModalBottomSheetState()
-    val ip = if (currentEngine is AudioEngine.Wifi) currentEngine.host else ""
+    val ip = if (currentEngine is AudioOutput.Wifi) currentEngine.host else ""
     var typedIp by remember { mutableStateOf(ip) }
 
     val selectedEngineEnum =
-        if (currentEngine == AudioEngine.Oboe) SelectedAudioEngine.Oboe else SelectedAudioEngine.Wifi
+        if (currentEngine == AudioOutput.Oboe) SelectedAudioEngine.Oboe else SelectedAudioEngine.Wifi
 
     var selectedEngine by remember { mutableStateOf(selectedEngineEnum) }
 
@@ -138,8 +138,8 @@ fun EngineSelector(
                 onClick = {
 
                     val engine = when (selectedEngine) {
-                        SelectedAudioEngine.Oboe -> AudioEngine.Oboe
-                        SelectedAudioEngine.Wifi -> AudioEngine.Wifi(typedIp, 5004)
+                        SelectedAudioEngine.Oboe -> AudioOutput.Oboe
+                        SelectedAudioEngine.Wifi -> AudioOutput.Wifi(typedIp, 5004)
                     }
 
 

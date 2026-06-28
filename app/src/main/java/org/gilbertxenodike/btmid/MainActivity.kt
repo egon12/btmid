@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
                         onSetWaveform     = { vm.setWaveform(it)     },
                         modifier = Modifier.padding(innerPadding),
                         showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
-                        onSelectEngine = { vm.selectEngine(it) },
+                        onSelectEngine = { vm.selectOutput(it) },
                         onLoopRecord = { vm.loopRecord() },
                         onLoopStop   = { vm.loopStop()   },
                         onLoopClear  = { vm.loopClear()  }
