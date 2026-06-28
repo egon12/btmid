@@ -53,10 +53,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
                         onSelectEngine = { vm.selectOutput(it) },
-
-                        onLoopRecord = { vm.loopRecord() },
-                        onLoopStop   = { vm.loopStop()   },
-                        onLoopClear  = { vm.loopClear()  }
+                        onLoopControlAction =  { vm.dispatchLoopControlAction(it) },
                     )
                 }
             }

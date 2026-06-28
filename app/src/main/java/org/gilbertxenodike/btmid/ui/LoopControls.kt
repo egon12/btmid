@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.gilbertxenodike.btmid.LoopControlAction
 import org.gilbertxenodike.btmid.LoopState
 import org.gilbertxenodike.btmid.ui.modifier.blink
 import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
@@ -22,9 +23,7 @@ import org.gilbertxenodike.btmid.ui.theme.SoftRed
 @Composable
 fun LoopControls(
     loopState: LoopState,
-    onRecord: () -> Unit,
-    onStop: () -> Unit,
-    onClear: () -> Unit,
+    onLoopControlAction: (LoopControlAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -33,7 +32,7 @@ fun LoopControls(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Button(
-            onClick = onRecord,
+            onClick = { onLoopControlAction(LoopControlAction.Rec) },
             colors = buttonColors(
                 containerColor = when (loopState) {
                     LoopState.Idle -> SoftRed
@@ -43,7 +42,6 @@ fun LoopControls(
                     LoopState.Overdubbing -> Red
                 }
             ),
-            //enabled = loopState == LoopState.Idle || loopState == LoopState.Recording || loopState == LoopState.Playing,
 
             ) {
             Text(
@@ -55,14 +53,21 @@ fun LoopControls(
         }
 
         Button(
-            onClick = onStop,
+            onClick = { onLoopControlAction(LoopControlAction.Play) },
+        ) {
+            Text("PLAY")
+        }
+
+        Button(
+            onClick = { onLoopControlAction(LoopControlAction.Stop) },
             enabled = loopState == LoopState.Recording || loopState == LoopState.Overdubbing || loopState == LoopState.Armed,
         ) {
             Text("STOP")
         }
 
+
         OutlinedButton(
-            onClick = onClear,
+            onClick = { onLoopControlAction(LoopControlAction.Clear) },
             enabled = loopState == LoopState.Playing || loopState == LoopState.Idle,
         ) {
             Text("CLEAR")
@@ -88,23 +93,23 @@ fun LoopControls(
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsIdlePreview() {
-    BtmidTheme { LoopControls(LoopState.Idle, {}, {}, {}) }
+    BtmidTheme { LoopControls(LoopState.Idle, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsRecordingPreview() {
-    BtmidTheme { LoopControls(LoopState.Recording, {}, {}, {}) }
+    BtmidTheme { LoopControls(LoopState.Recording, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsPlayingPreview() {
-    BtmidTheme { LoopControls(LoopState.Playing, {}, {}, {}) }
+    BtmidTheme { LoopControls(LoopState.Playing, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsArmedPreview() {
-    BtmidTheme { LoopControls(LoopState.Armed, {}, {}, {}) }
+    BtmidTheme { LoopControls(LoopState.Armed, {}) }
 }

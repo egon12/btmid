@@ -41,6 +41,7 @@ import org.gilbertxenodike.btmid.ConnectionStatus
 import org.gilbertxenodike.btmid.DeviceUiState
 import org.gilbertxenodike.btmid.DrumBackend
 import org.gilbertxenodike.btmid.KeyboardType
+import org.gilbertxenodike.btmid.LoopControlAction
 import org.gilbertxenodike.btmid.SynthWaveform
 import org.gilbertxenodike.btmid.MidiEventUiModel
 import org.gilbertxenodike.btmid.UiState
@@ -60,9 +61,7 @@ fun MainScreen(
     onSetWaveform: (SynthWaveform) -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioOutput) -> Unit,
-    onLoopRecord: () -> Unit,
-    onLoopStop: () -> Unit,
-    onLoopClear: () -> Unit,
+    onLoopControlAction: (LoopControlAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -113,9 +112,7 @@ fun MainScreen(
 
             LoopControls(
                 loopState = uiState.loopState,
-                onRecord  = onLoopRecord,
-                onStop    = onLoopStop,
-                onClear   = onLoopClear,
+                onLoopControlAction = onLoopControlAction,
             )
 
             DrumEngineSelector(
@@ -336,9 +333,7 @@ private fun MainScreenPermissionNeededPreview() {
             onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
-            onLoopRecord = {},
-            onLoopStop   = {},
-            onLoopClear  = {},
+            onLoopControlAction = {},
         )
     }
 }
@@ -370,9 +365,7 @@ private fun MainScreenConnectedPreview() {
             onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
-            onLoopRecord = {},
-            onLoopStop   = {},
-            onLoopClear  = {},
+            onLoopControlAction = {},
         )
     }
 }
@@ -400,9 +393,7 @@ private fun MainScreenScanningPreview() {
             onSetWaveform = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
-            onLoopRecord = {},
-            onLoopStop   = {},
-            onLoopClear  = {},
+            onLoopControlAction = {},
         )
     }
 }

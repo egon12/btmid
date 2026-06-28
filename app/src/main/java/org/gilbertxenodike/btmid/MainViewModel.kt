@@ -25,10 +25,10 @@ import org.gilbertxenodike.btmid.synth.SampleBank
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
-
 enum class KeyboardType { Piano, Poly, Mono }
 enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
+enum class LoopControlAction { Rec, Play, Stop, Clear }
 
 sealed class AudioOutput {
     object Oboe : AudioOutput()
@@ -214,25 +214,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         _uiState.value = _uiState.value.copy(selectEngineDialogVisible = it)
     }
 
-    fun loopRecord() {
-        NativeAudioEngine.loopRecord()
-        _uiState.value = _uiState.value.copy(loopState = LoopState.Armed, loopLengthSec = 0f)
-    }
-
-    fun loopStop() {
-        NativeAudioEngine.loopPlay()
-        _uiState.value = _uiState.value.copy(loopState = LoopState.Playing)
-    }
-
-    fun loopClear() {
-        NativeAudioEngine.loopClear()
-        _uiState.value = _uiState.value.copy(loopState = LoopState.Idle, loopLengthSec = 0f)
-    }
-
-    fun selectOutput(engine: AudioOutput) {
-        val current = _uiState.value
-        NativeAudioEngine.setOutput(engine)
-        _uiState.value = current.copy(engine = engine)
+    fun dispatchLoopControlAction(action: LoopControlAction) {
+        when (action) {
+            LoopControlAction.Rec -> NativeAudioEngine.loopRecord()
+            LoopControlAction.Play -> NativeAudioEngine.loopPlay()
+            LoopControlAction.Stop -> NativeAudioEngine.loopStop()
+            LoopControlAction.Clear -> NativeAudioEngine.loopClear()
+        }
     }
 
     override fun onLoopState(state: Int) {
@@ -244,5 +232,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             else -> LoopState.Idle
         }
         _uiState.value = _uiState.value.copy(loopState = ls)
+    }
+
+    fun selectOutput(engine: AudioOutput) {
+        val current = _uiState.value
+        NativeAudioEngine.setOutput(engine)
+        _uiState.value = current.copy(engine = engine)
     }
 }
