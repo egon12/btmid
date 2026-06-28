@@ -195,7 +195,7 @@ AudioGraph
 - `openMidiDevice` / `closeMidiDevice` delegate to `MidiEngine::openMidiDevice` / `closeMidiDevice`
 - `setInstrument(channel, id)` → repository lazy-creates instrument → `MidiEngine::setInstrument`
 - `loadDrumSample` → forwards to `InstrumentRepository` (for SampleDrum)
-- `loopStartRecord` / `loopStopRecord` / `loopClear` / `loopState` → delegate to `MidiEngine::loopRecorder`
+- `loopRecord` / `loopPlay` / `loopClear` / `loopState` → delegate to `MidiEngine::loopRecorder`
 
 #### MidiEngine (concrete class — `MidiEngine.h/.cpp`)
 
@@ -232,8 +232,8 @@ Replaces the old `AudioEngine` pure-virtual interface. All MIDI processing, loop
 #### LoopRecorder
 
 - State machine: `Idle(0) → Recording(1) → Playing(2)`, with `Armed(3)` and `Overdubbing(4)` states
-- `startRecording()`: Idle→Armed, or Playing→Overdubbing
-- `stopRecording()`: Recording→Playing (maps timestamps to frames), or Overdubbing→Playing (merges overdub events sorted by frame)
+- `rec()`: Idle→Armed, or Playing→Overdubbing
+- `play()`: Recording→Playing (maps timestamps to frames), or Overdubbing→Playing (merges overdub events sorted by frame)
 - `advance(int32_t frames, fire_fn)`: called from audio thread; plays back events whose frame <= current position
 - `onMidiEvent(MidiMsg, timestamp)`: called from MIDI poll; handles CC#95 (start/overdub) and CC#93 (stop)
 - `onUiMidiEvent(MidiMsg)`: called from UI noteOn/Off; records with `clock_gettime` timestamps

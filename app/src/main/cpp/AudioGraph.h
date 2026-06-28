@@ -45,13 +45,15 @@ public:
 
     void setLoopStateListener(JNIEnv *env, jobject jCallback);
 
-    void loopStartRecord();
+    void loopRecord();
 
-    void loopStopRecord();
+    void loopPlay();
+
+    void loopStop();
 
     void loopClear();
 
-    int loopState();
+    int loopState() const;
 
 private:
     InstrumentRepository mRepository;

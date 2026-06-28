@@ -36,7 +36,7 @@ The top-level coordinator and sole JNI entry point.
 | `setInstrument(channel, id)` | Repository lazy-creates instrument → wires to engine |
 | `loadDrumSample(id, data, len)` | Forwards to both repository and engine |
 | `noteOn/Off/CC(ch, ...)` | Routes to engine + records UI events into LoopRecorder |
-| `loopStartRecord/StopRecord/Clear/State` | Direct calls to LoopRecorder |
+| `loopRecord/StopRecord/Clear/State` | Direct calls to LoopRecorder |
 | `wireEngine()` (private) | Sets up MIDI observer, advance callback, and state-change callback on current engine |
 
 **Engine wiring (`wireEngine`):**

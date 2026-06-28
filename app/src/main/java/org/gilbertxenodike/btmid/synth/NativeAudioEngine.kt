@@ -41,10 +41,11 @@ object NativeAudioEngine {
     fun closeMidiDevice() = closeMidiDevice(ptr)
 
     fun setLoopStateListener(callback: LoopStateListener) = setLoopStateListener(ptr, callback)
-    fun loopStartRecord() = loopStartRecord(ptr)
-    fun loopStopRecord()  = loopStopRecord(ptr)
-    fun loopClear()       = loopClear(ptr)
-    fun loopState(): Int  = loopState(ptr)
+    fun loopRecord() = loopRecord(ptr)
+    fun loopPlay() = loopPlay(ptr)
+    fun loopStop() = loopStop(ptr)
+    fun loopClear() = loopClear(ptr)
+    fun loopState(): Int = loopState(ptr)
 
     external fun benchmarkPianos(): String
 
@@ -64,8 +65,9 @@ object NativeAudioEngine {
     private external fun closeMidiDevice(ptr: Long)
 
     private external fun setLoopStateListener(ptr: Long, callback: LoopStateListener)
-    private external fun loopStartRecord(ptr: Long)
-    private external fun loopStopRecord(ptr: Long)
+    private external fun loopRecord(ptr: Long)
+    private external fun loopPlay(ptr: Long)
+    private external fun loopStop(ptr: Long)
     private external fun loopClear(ptr: Long)
     private external fun loopState(ptr: Long): Int
 }

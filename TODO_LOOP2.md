@@ -7,7 +7,7 @@ Bugs found in the timestamp-based rewrite of `LoopRecorder`. Ordered by severity
 ## Checklist
 
 - [ ] Fix 1 — Data race: `clear()` mutates vectors on UI thread while audio thread reads them
-- [ ] Fix 2 — Real-time safety: `map_timestamp_to_frame()` heap-allocates on the Oboe audio thread
+- [ ] Fix 2 — Real-time safety: `storeRecord()` heap-allocates on the Oboe audio thread
 - [x] Fix 3 — Timestamp truncation: `onUiMidiEvent` stores `tv_nsec` only, not full monotonic ns
 - [x] Fix 4 — Wrong channel: `onUiMidiEvent` hardcodes `channel=0`; drum hits replay through piano
 - [x] Fix 5 — `playedIndex` never updated when all events in window fire — events replay forever
@@ -44,7 +44,7 @@ void LoopRecorder::clear() {
 if (mShouldClear.load(std::memory_order_acquire)) {
     mEventsRecorded.clear();
     mEventsPlay.clear();
-    mLoopLength = 0;
+    mEndFrame = 0;
     current = 0;
     playedIndex = -1;
     mShouldClear.store(false, std::memory_order_release);
@@ -59,22 +59,22 @@ if (mShouldClear.load(std::memory_order_acquire)) {
 
 **File:** `app/src/main/cpp/LoopRecorder.cpp`
 
-`stopRecording()` calls `map_timestamp_to_frame()` which does `mEventsPlay.clear()` +
+`play()` calls `storeRecord()` which does `mEventsPlay.clear()` +
 `push_back()` in a loop — potentially triggering heap allocation. This path is reachable
-from the audio thread when CC ch=0 cc=93 arrives via `onMidiEvent()` → `stopRecording()`.
+from the audio thread when CC ch=0 cc=93 arrives via `onMidiEvent()` → `play()`.
 
 Pre-reserve `mEventsPlay` to avoid reallocation:
 
 ```cpp
-void LoopRecorder::map_timestamp_to_frame() {
+void LoopRecorder::storeRecord() {
     mEventsPlay.clear();
     mEventsPlay.reserve(mEventsRecorded.size());  // ← add this
     // ... rest unchanged
 }
 ```
 
-For a more thorough fix, do not call `map_timestamp_to_frame()` from the audio thread at
-all — set a flag in `stopRecording()` and do the conversion on a dedicated worker thread.
+For a more thorough fix, do not call `storeRecord()` from the audio thread at
+all — set a flag in `play()` and do the conversion on a dedicated worker thread.
 
 ---
 
@@ -86,7 +86,7 @@ all — set a flag in `stopRecording()` and do the conversion on a dedicated wor
 // WRONG — tv_nsec is 0..999,999,999 only; wraps every second
 mEventsRecorded.push_back({t.tv_nsec, MidiMsg{type, 0, note, vel}});
 
-// CORRECT — full monotonic nanoseconds, same as startRecording()/stopRecording()
+// CORRECT — full monotonic nanoseconds, same as rec()/play()
 int64_t ts = t.tv_sec * 1000000000LL + t.tv_nsec;
 mEventsRecorded.push_back({ts, MidiMsg{type, 0, note, vel}});
 ```
@@ -195,7 +195,7 @@ int32_t current;
 int32_t current{0};
 ```
 
-Unlike `mLoopLength{0}` and `playedIndex{0}` on adjacent lines, `current` has no
+Unlike `mEndFrame{0}` and `playedIndex{0}` on adjacent lines, `current` has no
 in-class initializer. Default construction leaves it indeterminate. The first
 `advance()` call reads it as `endFrame = current + frames` — undefined behavior.
 
@@ -211,7 +211,7 @@ The deferred-clear branch inside `advance()` (from Fix 1) must reset all playbac
 // In the deferred-clear branch inside advance():
 mEventsRecorded.clear();
 mEventsPlay.clear();
-mLoopLength = 0;
+mEndFrame = 0;
 current = 0;       // ← must reset
 playedIndex = -1;  // ← must reset (not 0; see Fix 5)
 ```
@@ -226,14 +226,14 @@ recording. The first playthrough is completely silent.
 
 **File:** `app/src/main/cpp/LoopRecorder.cpp` — `advance()`
 
-When `current > mLoopLength`, the code resets and sets `playedIndex = -1` but does NOT
-fire events that fall in `[0, current % mLoopLength]`. They are deferred to the next tick,
+When `current > mEndFrame`, the code resets and sets `playedIndex = -1` but does NOT
+fire events that fall in `[0, current % mEndFrame]`. They are deferred to the next tick,
 arriving consistently ~5–10 ms late. Add a second pass after the wrap:
 
 ```cpp
 current = endFrame;
-if (current >= mLoopLength) {   // use >= not > to handle exact-boundary case
-    current -= mLoopLength;
+if (current >= mEndFrame) {   // use >= not > to handle exact-boundary case
+    current -= mEndFrame;
     playedIndex = -1;
     // Second pass: fire events in the wrapped region [0, current)
     for (int i = 0; i < (int)mEventsPlay.size(); i++) {
@@ -254,13 +254,13 @@ if (current >= mLoopLength) {   // use >= not > to handle exact-boundary case
 
 **File:** `app/src/main/cpp/LoopRecorder.cpp`
 
-Neither `startRecording()` nor the `Armed` branch clears `mEventsRecorded`.
+Neither `rec()` nor the `Armed` branch clears `mEventsRecorded`.
 If the user records, stops, then records again without `clear()`, old events remain and
-`map_timestamp_to_frame()` processes them all — those with timestamps before `mStartRecordNs`
+`storeRecord()` processes them all — those with timestamps before `mStartRecordNs`
 produce overflowed `int32_t` frame values in `mEventsPlay`, causing ghost notes.
 
 ```cpp
-void LoopRecorder::startRecording() {
+void LoopRecorder::rec() {
     mEventsRecorded.clear();   // ← add
     timespec start{};
     clock_gettime(CLOCK_MONOTONIC, &start);
@@ -279,7 +279,7 @@ if (mState.load(std::memory_order_acquire) == State::Armed) {
 ```
 
 Note: `mEventsRecorded.clear()` must run on the audio thread (the same thread that writes
-to it). If `startRecording()` is called from the UI thread, coordinate with the
+to it). If `rec()` is called from the UI thread, coordinate with the
 deferred-flag pattern from Fix 1.
 
 ---

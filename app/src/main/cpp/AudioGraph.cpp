@@ -87,10 +87,12 @@ void AudioGraph::setLoopStateListener(JNIEnv *env, jobject jCallback) {
     mMidiEngine.uiCallback.setLoopStateListener(env, jCallback);
 }
 
-void AudioGraph::loopStartRecord() { mMidiEngine.loopRecorder.startRecording(); }
+void AudioGraph::loopRecord() { mMidiEngine.loopRecorder.rec(); }
 
-void AudioGraph::loopStopRecord() { mMidiEngine.loopRecorder.stopRecording(); }
+void AudioGraph::loopPlay() { mMidiEngine.loopRecorder.play(); }
+
+void AudioGraph::loopStop() { mMidiEngine.loopRecorder.stop(); }
 
 void AudioGraph::loopClear() { mMidiEngine.loopRecorder.clear(); }
 
-int AudioGraph::loopState() { return static_cast<int>(mMidiEngine.loopRecorder.state()); }
+int AudioGraph::loopState() const { return static_cast<int>(mMidiEngine.loopRecorder.state()); }

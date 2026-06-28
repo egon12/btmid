@@ -25,9 +25,11 @@ public:
         Idle = 0, Recording = 1, Playing = 2, Armed = 3, Overdubbing = 4,
     };
 
-    void startRecording();
+    void rec();
 
-    void stopRecording();
+    void play();
+
+    void stop();
 
     void clear();
 
@@ -45,6 +47,7 @@ private:
     const float mTimestampToFrame = static_cast<float>(kSampleRate) / 1'000'000'000.0;
 
     std::atomic<State> mState{State::Idle};
+
     void changeState(State newState);
 
     int64_t mStartRecordNs;
@@ -55,9 +58,15 @@ private:
 
     std::shared_ptr<std::vector<FrameMidiMsg>> mPlayEventsPtr;
 
-    int32_t mLoopLength{0};
-    int32_t current{0};
-    int mStartPlayIndex{0};
+    int32_t mEndFrame{0};
+    int32_t mCurrentFrame{0};
+    int mPlayIndex{0};
 
-    void map_timestamp_to_frame();
+    void storeRecord();
+
+    void storeOverdub();
+
+    static int64_t nowInNs();
+
+    int32_t nsToFrame(int64_t ns) const;
 };

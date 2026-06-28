@@ -104,15 +104,21 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setLoopStateListener(
 
 
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStartRecord(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopRecord(
         JNIEnv *, jobject, jlong ptr) {
-    GRAPH(ptr)->loopStartRecord();
+    GRAPH(ptr)->loopRecord();
 }
 
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStopRecord(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopPlay(
         JNIEnv *, jobject, jlong ptr) {
-    GRAPH(ptr)->loopStopRecord();
+    GRAPH(ptr)->loopPlay();
+}
+
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopStop(
+        JNIEnv *, jobject, jlong ptr) {
+    GRAPH(ptr)->loopStop();
 }
 
 JNIEXPORT void JNICALL

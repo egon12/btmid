@@ -215,12 +215,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     }
 
     fun loopRecord() {
-        NativeAudioEngine.loopStartRecord()
+        NativeAudioEngine.loopRecord()
         _uiState.value = _uiState.value.copy(loopState = LoopState.Armed, loopLengthSec = 0f)
     }
 
     fun loopStop() {
-        NativeAudioEngine.loopStopRecord()
+        NativeAudioEngine.loopPlay()
         _uiState.value = _uiState.value.copy(loopState = LoopState.Playing)
     }
 
