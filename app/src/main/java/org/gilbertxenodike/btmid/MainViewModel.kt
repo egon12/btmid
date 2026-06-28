@@ -52,7 +52,7 @@ data class UiState(
     val keyboardType: KeyboardType = KeyboardType.Piano,
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
-    val loopLengthSec: Float = 0f,
+    val loopLengthSec: Int = 0,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application),
@@ -223,7 +223,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         }
     }
 
-    override fun onLoopState(state: Int) {
+    override fun onLoopStateChange(state: Int) {
         val ls = when (state) {
             1 -> LoopState.Recording
             2 -> LoopState.Playing
@@ -232,6 +232,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             else -> LoopState.Idle
         }
         _uiState.value = _uiState.value.copy(loopState = ls)
+    }
+
+    override fun onLoopProgress(progress: Int) {
+        _uiState.value = _uiState.value.copy(loopLengthSec = progress)
     }
 
     fun selectOutput(engine: AudioOutput) {

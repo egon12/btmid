@@ -23,6 +23,8 @@ public:
 
     void onLoopState(LoopRecorder::State s);
 
+    void onLoopProgress(int progress);
+
     void clearLoopStateListener();
 
     void stop();
@@ -37,15 +39,22 @@ private:
     jobject mMidiCallback{nullptr};
     jmethodID mOnMidiEventId{nullptr};
 
-    SpscRing<LoopRecorder::State, 16> mLoopStateQueue;
     jobject mLoopStateListener{nullptr};
-    jmethodID mOnLoopStateId{nullptr};
+
+    SpscRing<LoopRecorder::State, 16> mLoopStateQueue;
+    jmethodID mOnLoopStateChangeId{nullptr};
+
+    SpscRing<int, 16> mLoopProgressQueue;
+    std::atomic<int> lastProgress;
+    jmethodID mOnLoopProgressId{nullptr};
 
     void dispatchLoop(JNIEnv *env);
 
     bool consumeMidi(JNIEnv *env);
 
     bool consumeLoopState(JNIEnv *env);
+
+    bool consumeLoopProgress(JNIEnv *env);
 
 
 };

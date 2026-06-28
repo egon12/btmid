@@ -75,10 +75,12 @@ void UICallback::setLoopStateListener(JNIEnv *env, jobject listener) {
     if (listener) {
         mLoopStateListener = env->NewGlobalRef(listener);
         jclass cls = env->GetObjectClass(mLoopStateListener);
-        mOnLoopStateId = env->GetMethodID(cls, "onLoopState", "(I)V");
+        mOnLoopStateChangeId = env->GetMethodID(cls, "onLoopStateChange", "(I)V");
+        mOnLoopProgressId = env->GetMethodID(cls, "onLoopProgress", "(I)V");
         env->DeleteLocalRef(cls);
     } else {
-        mOnLoopStateId = nullptr;
+        mOnLoopStateChangeId = nullptr;
+        mOnLoopProgressId = nullptr;
     }
 
     dispatchLoop(env);
@@ -86,6 +88,13 @@ void UICallback::setLoopStateListener(JNIEnv *env, jobject listener) {
 
 void UICallback::onLoopState(LoopRecorder::State s) {
     mLoopStateQueue.push(s);
+}
+
+void UICallback::onLoopProgress(int progress) {
+    LOGD("onLoopProgress %d", progress);
+    if (progress == lastProgress) return;
+    mLoopProgressQueue.push(progress);
+    lastProgress = progress;
 }
 
 void UICallback::clearLoopStateListener() {
@@ -105,7 +114,8 @@ void UICallback::clearLoopStateListener() {
 
     if (attached) mJvm->DetachCurrentThread();
     mLoopStateListener = nullptr;
-    mOnLoopStateId = nullptr;
+    mOnLoopStateChangeId = nullptr;
+    mOnLoopProgressId = nullptr;
 
     // We don't run the dispatchLoop because clearLoopStateListener should be when all is done
     //dispatchLoop(env);
@@ -147,9 +157,10 @@ void UICallback::dispatchLoop(JNIEnv *env) {
         while (mDispatchRunning.load(std::memory_order_acquire)) {
             bool hasMidi = consumeMidi(env);
             bool hasLoopState = consumeLoopState(env);
+            bool hasLoopProgress= consumeLoopProgress(env);
 
             // Sleep briefly to avoid busy-waiting if queues are empty
-            if (!hasMidi && !hasLoopState) {
+            if (!hasMidi && !hasLoopState && !hasLoopProgress) {
                 struct timespec ts{0, 1'000'000}; // 1ms
                 nanosleep(&ts, nullptr);
             }
@@ -184,8 +195,8 @@ bool UICallback::consumeLoopState(JNIEnv *env) {
 
     while (mLoopStateQueue.pop(state)) {
         any = true;
-        if (env && mLoopStateListener && mOnLoopStateId) {
-            env->CallVoidMethod(mLoopStateListener, mOnLoopStateId, (jint) state);
+        if (env && mLoopStateListener && mOnLoopStateChangeId) {
+            env->CallVoidMethod(mLoopStateListener, mOnLoopStateChangeId, (jint) state);
 
             if (env->ExceptionCheck()) {
                 env->ExceptionClear();
@@ -194,3 +205,21 @@ bool UICallback::consumeLoopState(JNIEnv *env) {
     }
     return any;
 }
+
+bool UICallback::consumeLoopProgress(JNIEnv *env) {
+    bool any = false;
+
+    int progress;
+    while (mLoopProgressQueue.pop(progress)) {
+        any = true;
+        if (env && mLoopStateListener && mOnLoopProgressId) {
+            env->CallVoidMethod(mLoopStateListener, mOnLoopProgressId, (jint) progress);
+
+            if (env->ExceptionCheck()) {
+                env->ExceptionClear();
+            }
+        }
+    }
+    return any;
+}
+

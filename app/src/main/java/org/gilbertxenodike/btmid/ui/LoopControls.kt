@@ -1,6 +1,7 @@
 package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -23,60 +24,61 @@ import org.gilbertxenodike.btmid.ui.theme.SoftRed
 @Composable
 fun LoopControls(
     loopState: LoopState,
+    loopProgress: Int,
     onLoopControlAction: (LoopControlAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Button(
-            onClick = { onLoopControlAction(LoopControlAction.Rec) },
-            colors = buttonColors(
-                containerColor = when (loopState) {
-                    LoopState.Idle -> SoftRed
-                    LoopState.Recording -> Red
-                    LoopState.Playing -> SoftRed
-                    LoopState.Armed -> Red
-                    LoopState.Overdubbing -> Red
-                }
-            ),
+    Column {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                onClick = { onLoopControlAction(LoopControlAction.Rec) },
+                colors = buttonColors(
+                    containerColor = when (loopState) {
+                        LoopState.Idle -> SoftRed
+                        LoopState.Recording -> Red
+                        LoopState.Playing -> SoftRed
+                        LoopState.Armed -> Red
+                        LoopState.Overdubbing -> Red
+                    }
+                ),
 
+                ) {
+                Text(
+                    "\u25CF",
+                    modifier = if (loopState == LoopState.Armed) Modifier.blink() else Modifier,
+                )
+
+            }
+
+            Button(
+                onClick = { onLoopControlAction(LoopControlAction.Play) },
             ) {
-            Text(
-                "\u25CF ",
-                modifier = if (loopState == LoopState.Armed) Modifier.blink() else Modifier,
-            )
-            Text("REC")
+                Text("\u25B6")
+            }
 
-        }
-
-        Button(
-            onClick = { onLoopControlAction(LoopControlAction.Play) },
-        ) {
-            Text("PLAY")
-        }
-
-        Button(
-            onClick = { onLoopControlAction(LoopControlAction.Stop) },
-            enabled = loopState == LoopState.Recording || loopState == LoopState.Overdubbing || loopState == LoopState.Armed,
-        ) {
-            Text("STOP")
-        }
+            Button(
+                onClick = { onLoopControlAction(LoopControlAction.Stop) },
+            ) {
+                Text("\u25a0")
+            }
 
 
-        OutlinedButton(
-            onClick = { onLoopControlAction(LoopControlAction.Clear) },
-            enabled = loopState == LoopState.Playing || loopState == LoopState.Idle,
-        ) {
-            Text("CLEAR")
+            OutlinedButton(
+                onClick = { onLoopControlAction(LoopControlAction.Clear) },
+                enabled = loopState == LoopState.Playing || loopState == LoopState.Idle,
+            ) {
+                Text("CLEAR")
+            }
         }
 
         val label = when (loopState) {
             LoopState.Idle -> ""
             LoopState.Recording -> "recording\u2026"
-            LoopState.Playing -> "looping"
+            LoopState.Playing -> "looping $loopProgress %"
             LoopState.Armed -> "armed\u2026"
             LoopState.Overdubbing -> "overdubbing\u2026"
         }
@@ -93,23 +95,23 @@ fun LoopControls(
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsIdlePreview() {
-    BtmidTheme { LoopControls(LoopState.Idle, {}) }
+    BtmidTheme { LoopControls(LoopState.Idle, 0, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsRecordingPreview() {
-    BtmidTheme { LoopControls(LoopState.Recording, {}) }
+    BtmidTheme { LoopControls(LoopState.Recording, 0, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsPlayingPreview() {
-    BtmidTheme { LoopControls(LoopState.Playing, {}) }
+    BtmidTheme { LoopControls(LoopState.Playing, 80, {}) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsArmedPreview() {
-    BtmidTheme { LoopControls(LoopState.Armed, {}) }
+    BtmidTheme { LoopControls(LoopState.Armed, 80, {}) }
 }

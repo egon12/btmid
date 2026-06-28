@@ -35,6 +35,8 @@ public:
 
     std::function<void(State)> onStateChange;
 
+    std::function<void(int)> onProgress;
+
     State state() const { return mState.load(std::memory_order_acquire); }
 
     void advance(int32_t frames, const std::function<void(MidiMsg)> &fire);

@@ -112,6 +112,7 @@ fun MainScreen(
 
             LoopControls(
                 loopState = uiState.loopState,
+                loopProgress = uiState.loopLengthSec,
                 onLoopControlAction = onLoopControlAction,
             )
 

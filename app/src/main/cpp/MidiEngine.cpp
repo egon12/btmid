@@ -11,6 +11,10 @@ MidiEngine::MidiEngine() {
     loopRecorder.onStateChange = [this](LoopRecorder::State s) {
         uiCallback.onLoopState(s);
     };
+
+    loopRecorder.onProgress = [this](int progress) {
+        uiCallback.onLoopProgress(progress);
+    };
 }
 
 void MidiEngine::setInstrument(int channel, Instrument *instrument) {

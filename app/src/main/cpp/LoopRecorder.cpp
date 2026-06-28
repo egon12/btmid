@@ -122,6 +122,9 @@ void LoopRecorder::advance(int32_t frames, const std::function<void(MidiMsg)> &f
         mCurrentFrame -= mEndFrame;
         mPlayIndex = 0;
     }
+
+    int progress = mCurrentFrame / (mEndFrame / 4);
+    if (onProgress) onProgress(progress);
 }
 
 void LoopRecorder::storeRecord() {

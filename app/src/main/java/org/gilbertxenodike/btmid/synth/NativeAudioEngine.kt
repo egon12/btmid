@@ -15,7 +15,10 @@ object NativeAudioEngine {
     }
 
     interface LoopStateListener {
-        fun onLoopState(state: Int)
+        fun onLoopStateChange(state: Int)
+
+        // run from 0 until 100 maybe per 25
+        fun onLoopProgress(progress: Int)
     }
 
 
