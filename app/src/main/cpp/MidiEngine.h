@@ -35,9 +35,9 @@ public:
 
     void controlChange(int channel, int cc, int value);
 
-    void setOutputPort(JNIEnv *env, jobject jDevice, jobject listener);
+    void openMidiDevice(JNIEnv *env, jobject jDevice, jobject jListener);
 
-    void clearOutputPort();
+    void closeMidiDevice();
 
     // Drain all pending AMidi messages, route to noteOn/Off/CC, push to mEventQueue.
     // Render each unique instrument in mChannels into buf (deduplicates by pointer).

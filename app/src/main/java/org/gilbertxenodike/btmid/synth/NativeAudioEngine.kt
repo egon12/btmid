@@ -28,17 +28,17 @@ object NativeAudioEngine {
     fun setInstrument(channel: Int, name: String) = setInstrument(ptr, channel, name)
     fun setDrumBackend(backendId: Int) = setDrumBackend(ptr, backendId)
 
-    fun setEngine(audioEngine: AudioEngine) {
+    fun setOutput(audioEngine: AudioEngine) {
         when (audioEngine) {
-            AudioEngine.Oboe -> setEngine(ptr, 1, "")
-            is AudioEngine.Wifi -> setEngine(ptr, 2, audioEngine.host)
+            AudioEngine.Oboe -> setOutput(ptr, 1, "")
+            is AudioEngine.Wifi -> setOutput(ptr, 2, audioEngine.host)
         }
     }
 
-    fun setOutputPort(device: MidiDevice, listener: MidiEventListener) =
-        setOutputPort(ptr, device, listener)
+    fun openMidiDevice(device: MidiDevice, listener: MidiEventListener) =
+        openMidiDevice(ptr, device, listener)
 
-    fun clearOutputPort() = clearOutputPort(ptr)
+    fun closeMidiDevice() = closeMidiDevice(ptr)
 
     fun setLoopStateListener(callback: LoopStateListener) = setLoopStateListener(ptr, callback)
     fun loopStartRecord() = loopStartRecord(ptr)
@@ -59,9 +59,9 @@ object NativeAudioEngine {
     private external fun setInstrument(ptr: Long, channel: Int, name: String)
     private external fun setDrumBackend(ptr: Long, backendId: Int)
 
-    private external fun setEngine(ptr: Long, engineId: Int, ip: String)
-    private external fun setOutputPort(ptr: Long, device: MidiDevice, callback: MidiEventListener)
-    private external fun clearOutputPort(ptr: Long)
+    private external fun setOutput(ptr: Long, engineId: Int, ip: String)
+    private external fun openMidiDevice(ptr: Long, device: MidiDevice, listener: MidiEventListener)
+    private external fun closeMidiDevice(ptr: Long)
 
     private external fun setLoopStateListener(ptr: Long, callback: LoopStateListener)
     private external fun loopStartRecord(ptr: Long)

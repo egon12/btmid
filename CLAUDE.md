@@ -75,7 +75,7 @@ app/src/main/java/org/gilbertxenodike/btmid/
     MidiRouter.kt            — NativeAudioEngine.MidiEventListener; receives parsed events from C++ dispatch thread, emits to SharedFlow for UI; also emits loop state events
 
   synth/
-    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, setDrumBackend, setInstrument, setEngine, loop controls, benchmarkPianos)
+    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, setDrumBackend, setInstrument, setOutput, loop controls, benchmarkPianos)
     SampleBank.kt            — decodes OGG assets → FloatArray per drum name via MediaCodec; resamples to 48 kHz; calls NativeAudioEngine.loadSample()
 
   ui/
@@ -132,8 +132,8 @@ Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`,
 ```
 BLE MIDI device
   → MidiManager.openBluetoothDevice(bluetoothDevice)
-  → BleMidiConnection passes MidiDevice to NativeAudioEngine.setOutputPort()
-  → jni_bridge → AudioGraph::openMidiDevice() → MidiEngine::setOutputPort()
+  → BleMidiConnection passes MidiDevice to NativeAudioEngine.openMidiDevice()
+  → jni_bridge → AudioGraph::openMidiDevice() → MidiEngine::openMidiDevice()
 
 OboeOutput path (default — local speaker output):
   → OboeOutput::onAudioReady() (Oboe audio thread)
@@ -191,8 +191,8 @@ AudioGraph
 - Single JNI entry point (`jni_bridge.cpp` holds one `AudioGraph*`)
 - Wires up default instruments in constructor: piano on ch 0, noise_drum on ch 9
 - Owns `InstrumentRepository` (declared first), then `UICallback`, then `MidiEngine` (shared_ptr), then outputs — C++ reverse-destruction order ensures outputs stop before engine before instruments are freed
-- `setEngine(engineId, host, port)` — stops both outputs, clears MIDI port, stops UICallback, creates brand-new `MidiEngine`, reconnects UICallback, creates appropriate output (1=Oboe, 2=Wifi), re-wires default instruments
-- `openMidiDevice` / `closeMidiDevice` delegate to `MidiEngine::setOutputPort` / `clearOutputPort`
+- `setOutput(engineId, host, port)` — stops both outputs, clears MIDI port, stops UICallback, creates brand-new `MidiEngine`, reconnects UICallback, creates appropriate output (1=Oboe, 2=Wifi), re-wires default instruments
+- `openMidiDevice` / `closeMidiDevice` delegate to `MidiEngine::openMidiDevice` / `closeMidiDevice`
 - `setInstrument(channel, id)` → repository lazy-creates instrument → `MidiEngine::setInstrument`
 - `loadDrumSample` → forwards to `InstrumentRepository` (for SampleDrum)
 - `loopStartRecord` / `loopStopRecord` / `loopClear` / `loopState` → delegate to `MidiEngine::loopRecorder`
@@ -206,7 +206,7 @@ Replaces the old `AudioEngine` pure-virtual interface. All MIDI processing, loop
 | `render(float* buf, int32_t frames)` | unified entry point: pollMidi → advanceLoop → renderAudio |
 | `setInstrument(channel, Instrument*)` | atomic store into `mChannels[channel]` |
 | `noteOn` / `noteOff` / `controlChange` | route to instrument + push to `loopRecorder.onUiMidiEvent()` |
-| `setOutputPort` / `clearOutputPort` | AMidi device binding + UICallback start/stop |
+| `openMidiDevice` / `closeMidiDevice` | AMidi device binding + UICallback start/stop |
 | `pollMidi()` (protected) | drains AMidi, parses, routes, pushes events to loopRecorder + UICallback |
 | `advanceLoop(int32_t frames)` (protected) | calls `loopRecorder.advance()`, fires playback MIDI into `mChannels` |
 | `renderAudio(float* buf, int32_t frames)` (protected) | deduplicates instruments by pointer, calls `render()` on each unique one |

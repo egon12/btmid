@@ -79,13 +79,13 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSample(
 }
 
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setOutputPort(
-        JNIEnv *env, jobject, jlong ptr, jobject jDevice, jobject jCallback) {
-    GRAPH(ptr)->openMidiDevice(env, jDevice, jCallback);
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_openMidiDevice(
+        JNIEnv *env, jobject, jlong ptr, jobject jDevice, jobject jListener) {
+    GRAPH(ptr)->openMidiDevice(env, jDevice, jListener);
 }
 
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_clearOutputPort(
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_closeMidiDevice(
         JNIEnv *, jobject, jlong ptr) {
     GRAPH(ptr)->closeMidiDevice();
 }
@@ -131,15 +131,15 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopState(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setEngine(JNIEnv *env, jobject thiz,
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setOutput(JNIEnv *env, jobject thiz,
                                                                  jlong ptr,
                                                                  jint engine_id, jstring ip) {
     if (engine_id == 1) {
-        GRAPH(ptr)->setEngine(1, "", 0);
+        GRAPH(ptr)->setOutput(1, "", 0);
     } else if (engine_id == 2) {
         const char *cip = env->GetStringUTFChars(ip, nullptr);
         std::string host(cip);
         env->ReleaseStringUTFChars(ip, cip);
-        GRAPH(ptr)->setEngine(2, host, 5004);
+        GRAPH(ptr)->setOutput(2, host, 5004);
     }
 }

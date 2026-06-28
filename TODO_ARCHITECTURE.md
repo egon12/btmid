@@ -2,8 +2,8 @@
 
 ## Current Problems
 
-1. `MidiEngine::setOutputPort` (line 39) recursively calls itself — infinite loop
-2. `MidiEngine::setOutputPort` (line 42) calls `OboeEngine::dispatchLoop` — wrong class, method undefined
+1. `MidiEngine::openMidiDevice` (line 39) recursively calls itself — infinite loop
+2. `MidiEngine::openMidiDevice` (line 42) calls `OboeEngine::dispatchLoop` — wrong class, method undefined
 3. `OboeEngine::dispatchLoop()` declared but never implemented
 4. `AudioGraph` line 4 creates `OboeEngine()` with no args, but constructor requires `shared_ptr<MidiEngine>`
 5. `jni_bridge.cpp` line 133 creates `OboeEngine()` with no args
@@ -36,8 +36,8 @@ AudioGraph
 - Add `UICallback* uiCallback = nullptr` member (non-owning)
 - Add `void setUICallback(UICallback*)` method
 - In `pollMidi()`, after pushing to `mEventQueue`, also call `if (uiCallback) uiCallback->onMidiEvent(evt)`
-- Fix `setOutputPort()` — remove recursive self-call, call `uiCallback->setCallback(env, jCallback)` then `uiCallback->start()`
-- Fix `clearOutputPort()` — call `uiCallback->stop()`
+- Fix `openMidiDevice()` — remove recursive self-call, call `uiCallback->setCallback(env, jCallback)` then `uiCallback->start()`
+- Fix `closeMidiDevice()` — call `uiCallback->stop()`
 - **Remove** these members (all moved to UICallback):
   - `mDispatchThread`, `mDispatchRunning`
   - `mJvm`, `mMidiCallback`, `mOnMidiEventId`, `mOnLoopStateId`
@@ -64,12 +64,12 @@ AudioGraph
   2. Create `UICallback`
   3. Wire: `mMidiEngine->setUICallback(uiCallback.get())`
   4. Create `OboeOutput(mMidiEngine)`
-- `setEngine()`: stop old engine, stop UICallback, create new engine, rewire UICallback, start UICallback if MIDI port open
+- `setOutput()`: stop old engine, stop UICallback, create new engine, rewire UICallback, start UICallback if MIDI port open
 
 ### 6. Update `jni_bridge.cpp` — Fix references
 
 - Update `OboeEngine` → `OboeOutput` in includes and construction
-- Fix `setEngine()` to construct `OboeOutput` with proper `shared_ptr<MidiEngine>`
+- Fix `setOutput()` to construct `OboeOutput` with proper `shared_ptr<MidiEngine>`
 - `AudioGraph` constructor now handles wiring internally
 
 ### 7. Build and verify

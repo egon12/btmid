@@ -58,8 +58,8 @@ void MidiEngine::controlChange(int channel, int cc, int value) {
     loopRecorder.onUiMidiEvent(msg);
 }
 
-void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject listener) {
-    clearOutputPort();
+void MidiEngine::openMidiDevice(JNIEnv *env, jobject jDevice, jobject jListener) {
+    closeMidiDevice();
 
     media_status_t status = AMidiDevice_fromJava(env, jDevice, &mNativeDevice);
     if (status != AMEDIA_OK) {
@@ -77,12 +77,12 @@ void MidiEngine::setOutputPort(JNIEnv *env, jobject jDevice, jobject listener) {
     mMidiPort.store(port, std::memory_order_release);
     mRunningStatus = 0;
 
-    uiCallback.setMidiEventListener(env, listener);
+    uiCallback.setMidiEventListener(env, jListener);
 
     LOGD("AMidi output port set");
 }
 
-void MidiEngine::clearOutputPort() {
+void MidiEngine::closeMidiDevice() {
     uiCallback.clearMidiEventListener();
 
     AMidiOutputPort *port = mMidiPort.exchange(nullptr, std::memory_order_acq_rel);

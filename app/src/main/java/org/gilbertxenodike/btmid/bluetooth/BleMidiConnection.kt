@@ -50,7 +50,7 @@ class BleMidiConnection(private val context: Context) {
                     return@openBluetoothDevice
                 }
                 midiDevice = device
-                NativeAudioEngine.setOutputPort(device, router)
+                NativeAudioEngine.openMidiDevice(device, router)
                 Log.d(TAG, "Connected to MIDI device via AMidi: ${bluetoothDevice.address}")
                 onConnected()
             },
@@ -60,7 +60,7 @@ class BleMidiConnection(private val context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect() {
-        NativeAudioEngine.clearOutputPort()
+        NativeAudioEngine.closeMidiDevice()
         midiDevice?.close()
         midiDevice = null
         gatt?.close()

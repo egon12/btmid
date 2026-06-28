@@ -374,7 +374,7 @@ fun selectEngine(engine: AudioEngine) {
     val current = _uiState.value
     val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
     val keyIds = arrayOf("piano", "sine_oscillator", "saw_oscillator", "square_oscillator", "mono_osc")
-    NativeAudioEngine.setEngine(engine)
+    NativeAudioEngine.setOutput(engine)
     NativeAudioEngine.setInstrument(0, keyIds[current.keyboardSound.ordinal])
     NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
     NativeAudioEngine.start()
@@ -385,7 +385,7 @@ fun selectEngine(engine: AudioEngine) {
 fun selectEngine(engine: AudioEngine) {
     val current = _uiState.value
     val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
-    NativeAudioEngine.setEngine(engine)
+    NativeAudioEngine.setOutput(engine)
     NativeAudioEngine.setInstrument(0, instrumentId(current.keyboardType, current.synthWaveform))
     NativeAudioEngine.setInstrument(9, drumIds[current.drumBackend.ordinal])
     NativeAudioEngine.start()

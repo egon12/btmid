@@ -32,7 +32,7 @@ The top-level coordinator and sole JNI entry point.
 
 | Method | Description |
 |--------|-------------|
-| `setEngine(unique_ptr<AudioEngine>)` | Stops current engine, swaps to new one, rewires LoopRecorder callbacks |
+| `setOutput(unique_ptr<AudioEngine>)` | Stops current engine, swaps to new one, rewires LoopRecorder callbacks |
 | `setInstrument(channel, id)` | Repository lazy-creates instrument → wires to engine |
 | `loadDrumSample(id, data, len)` | Forwards to both repository and engine |
 | `noteOn/Off/CC(ch, ...)` | Routes to engine + records UI events into LoopRecorder |
@@ -58,7 +58,7 @@ Pure-virtual base for all audio engines. Knows only about the `Instrument` inter
 | `setInstrument(channel, Instrument*)` | no-op | wired by InstrumentRepository |
 | `loadSample(id, data, len)` | no-op | only used by InstrumentRepository path |
 | `setDrumBackend(id)` | no-op | only used by InstrumentRepository path |
-| `setOutputPort` / `clearOutputPort` | ✓ | BLE MIDI device binding |
+| `openMidiDevice` / `closeMidiDevice` | ✓ | BLE MIDI device binding |
 | `setMidiObserver(callback)` | no-op | AudioGraph sets this to forward BLE MIDI to LoopRecorder |
 | `setAdvanceCallback(callback)` | no-op | AudioGraph sets this to advance LoopRecorder each render cycle |
 | `pushUiEvent(ch, type, d1, d2)` | no-op | pushes event to dispatch queue for UI notification |
@@ -132,8 +132,8 @@ MIDI event loop recorder and player. Records timestamped MIDI events and plays t
 ```
 BLE MIDI device
   → MidiManager.openBluetoothDevice(bluetoothDevice)
-  → BleMidiConnection passes MidiDevice to NativeAudioEngine.setOutputPort()
-  → jni_bridge → AudioGraph::openMidiDevice() → AudioEngine::setOutputPort()
+  → BleMidiConnection passes MidiDevice to NativeAudioEngine.openMidiDevice()
+  → jni_bridge → AudioGraph::openMidiDevice() → AudioEngine::openMidiDevice()
 
 OboeEngine path (local speaker):
   → onAudioReady() (Oboe audio thread)

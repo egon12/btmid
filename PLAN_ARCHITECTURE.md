@@ -96,7 +96,7 @@ std::unique_ptr<AudioEngine> mEngine;        // dies first
   - `mEngine->setAdvanceCallback(...)` → calls `loopRecorder.advance(frames, fire)` where `fire` routes through `mEngine->noteOn/Off/CC`
   - `loopRecorder.onStateChange = ...` → calls `mEngine->pushUiEvent(0xFF, state, 0, 0)`
 - Call `wireEngine()` in constructor (after creating default engine)
-- Call `wireEngine()` in `setEngine()` (after swapping engine)
+- Call `wireEngine()` in `setOutput()` (after swapping engine)
 - Implement `loopStartRecord/StopRecord/Clear/State` directly on `loopRecorder`
 - Implement `loopRecordEvent()` → `loopRecorder.onUiMidiEvent()`
 - In `noteOn/Off`: call `loopRecorder.onUiMidiEvent()` directly instead of `mEngine->loopRecordEvent()`
@@ -115,7 +115,7 @@ std::unique_ptr<AudioEngine> mEngine;        // dies first
 | `MidiEngine.h` | Remove LoopRecorder include/member, remove loop overrides, add observer/callback members |
 | `MidiEngine.cpp` | Remove loop implementations, update pollMidi/advanceLoop to use callbacks |
 | `AudioGraph.h` | Add LoopRecorder member, add wireEngine() |
-| `AudioGraph.cpp` | Implement wireEngine(), implement loop methods directly, update noteOn/Off and setEngine() |
+| `AudioGraph.cpp` | Implement wireEngine(), implement loop methods directly, update noteOn/Off and setOutput() |
 | `OboeEngine.h/cpp` | No changes |
 | `WifiEngine.h/cpp` | No changes |
 | `jni_bridge.cpp` | No changes |

@@ -243,7 +243,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application), N
     fun selectEngine(engine: AudioEngine) {
         val current = _uiState.value
         val drumIds = arrayOf("noise_drum", "fm_drum", "sample_drum")
-        NativeAudioEngine.setEngine(engine)
+        NativeAudioEngine.setOutput(engine)
         NativeAudioEngine.setInstrument(
             0,
             instrumentId(current.keyboardType, current.synthWaveform)

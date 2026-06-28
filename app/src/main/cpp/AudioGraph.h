@@ -27,11 +27,11 @@ public:
 
     void stop();
 
-    void openMidiDevice(JNIEnv *env, jobject jDevice, jobject jCallback);
+    void openMidiDevice(JNIEnv *env, jobject jDevice, jobject jListener);
 
     void closeMidiDevice();
 
-    void setEngine(int engineId, const std::string &host, int port);
+    void setOutput(int outputId, const std::string &host, int port);
 
     void setInstrument(int channel, const std::string &id);
 

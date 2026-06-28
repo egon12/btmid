@@ -18,7 +18,7 @@ AudioGraph::~AudioGraph() {
         mOboeOutput->stop();
         mOboeOutput.reset();
     }
-    mMidiEngine.clearOutputPort();
+    mMidiEngine.closeMidiDevice();
 }
 
 void AudioGraph::start() {
@@ -36,7 +36,7 @@ void AudioGraph::stop() {
     }
 }
 
-void AudioGraph::setEngine(int engineId, const std::string &host, int port) {
+void AudioGraph::setOutput(int outputId, const std::string &host, int port) {
     if (mWifiOutput) {
         mWifiOutput->stop();
         mWifiOutput.reset();
@@ -46,10 +46,10 @@ void AudioGraph::setEngine(int engineId, const std::string &host, int port) {
         mOboeOutput.reset();
     }
 
-    if (engineId == 1) {
+    if (outputId == 1) {
         mOboeOutput = std::make_unique<OboeOutput>(&mMidiEngine);
         mOboeOutput->start();
-    } else if (engineId == 2) {
+    } else if (outputId == 2) {
         mWifiOutput = std::make_unique<WifiOutput>(&mMidiEngine, host, port);
         mWifiOutput->start();
     }
@@ -75,18 +75,17 @@ void AudioGraph::controlChange(int ch, int cc, int v) {
     mMidiEngine.controlChange(ch, cc, v);
 }
 
-void AudioGraph::openMidiDevice(JNIEnv *env, jobject jDevice, jobject jCallback) {
-    mMidiEngine.setOutputPort(env, jDevice, jCallback);
+void AudioGraph::openMidiDevice(JNIEnv *env, jobject jDevice, jobject jListener) {
+    mMidiEngine.openMidiDevice(env, jDevice, jListener);
 }
 
 void AudioGraph::closeMidiDevice() {
-    mMidiEngine.clearOutputPort();
+    mMidiEngine.closeMidiDevice();
 }
 
 void AudioGraph::setLoopStateListener(JNIEnv *env, jobject jCallback) {
     mMidiEngine.uiCallback.setLoopStateListener(env, jCallback);
 }
-
 
 void AudioGraph::loopStartRecord() { mMidiEngine.loopRecorder.startRecording(); }
 
