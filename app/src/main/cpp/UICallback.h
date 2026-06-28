@@ -28,18 +28,24 @@ public:
     void stop();
 
 private:
-    SpscRing<MidiEvt, 256> mEventQueue;
+    JavaVM *mJvm{nullptr};
 
     std::thread mDispatchThread;
     std::atomic<bool> mDispatchRunning{false};
 
-    JavaVM *mJvm{nullptr};
+    SpscRing<MidiEvt, 256> mEventQueue;
     jobject mMidiCallback{nullptr};
     jmethodID mOnMidiEventId{nullptr};
 
     SpscRing<LoopRecorder::State, 16> mLoopStateQueue;
     jobject mLoopStateListener{nullptr};
     jmethodID mOnLoopStateId{nullptr};
-    std::thread mLoopStateDispatchThread;
-    std::atomic<bool> mLoopStateDispatchRunning{false};
+
+    void dispatchLoop(JNIEnv *env);
+
+    bool consumeMidi(JNIEnv *env);
+
+    bool consumeLoopState(JNIEnv *env);
+
+
 };
