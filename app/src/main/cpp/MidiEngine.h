@@ -39,15 +39,13 @@ public:
 
     void clearOutputPort();
 
-    void setUICallback(UICallback *callback);
-
     // Drain all pending AMidi messages, route to noteOn/Off/CC, push to mEventQueue.
     // Render each unique instrument in mChannels into buf (deduplicates by pointer).
     void render(float *buf, int32_t frames);
 
     LoopRecorder loopRecorder{};
 
-    UICallback *uiCallback{nullptr};
+    UICallback uiCallback{};
 
 protected:
     std::atomic<Instrument *> mChannels[16]{};

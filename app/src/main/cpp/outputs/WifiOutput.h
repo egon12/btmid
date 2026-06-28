@@ -1,4 +1,5 @@
 #pragma once
+
 #include "opus.h"
 #include <atomic>
 #include <memory>
@@ -10,25 +11,26 @@ class MidiEngine;
 
 class WifiOutput {
 public:
-    WifiOutput(std::shared_ptr<MidiEngine> engine, std::string host, int port);
+    WifiOutput(MidiEngine *engine, std::string host, int port);
+
     ~WifiOutput();
 
-    WifiOutput(const WifiOutput&) = delete;
-    WifiOutput& operator=(const WifiOutput&) = delete;
+    WifiOutput &operator=(const WifiOutput &) = delete;
 
     void start();
+
     void stop();
 
 private:
     void udpRenderLoop();
 
-    std::shared_ptr<MidiEngine>  mEngine;
-    std::string                  mHost;
-    int                          mPort;
+    MidiEngine *mEngine;
+    std::string mHost;
+    int mPort;
 
-    int                          mUdpSocket   {-1};
-    struct sockaddr_in           mUdpDest     {};
-    std::thread                  mUdpThread;
-    std::atomic<bool>            mUdpRunning  {false};
-    OpusEncoder*                 mOpusEncoder {nullptr};
+    int mUdpSocket{-1};
+    struct sockaddr_in mUdpDest{};
+    std::thread mUdpThread;
+    std::atomic<bool> mUdpRunning{false};
+    OpusEncoder *mOpusEncoder{nullptr};
 };

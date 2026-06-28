@@ -4,11 +4,16 @@
 #define LOG_TAG "UICallback"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
+UICallback::~UICallback() {
+    stop();
+}
+
 void UICallback::setMidiEventListener(JNIEnv *env, jobject listener) {
     if (mMidiCallback) env->DeleteGlobalRef(mMidiCallback);
     mMidiCallback = env->NewGlobalRef(listener);
     jclass cls = env->GetObjectClass(listener);
     mOnMidiEventId = env->GetMethodID(cls, "onMidiEvent", "(IIII)V");
+    env->DeleteLocalRef(cls);
 
     if (mDispatchRunning.load(std::memory_order_relaxed)) return;
     mDispatchRunning.store(true, std::memory_order_relaxed);
@@ -122,3 +127,4 @@ void UICallback::stop() {
     clearMidiEventListener();
     mJvm = nullptr;
 }
+

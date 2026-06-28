@@ -6,7 +6,7 @@
 
 class OboeOutput : public oboe::AudioStreamDataCallback {
 public:
-    OboeOutput(std::shared_ptr<MidiEngine> engine);
+    OboeOutput(MidiEngine *engine);
 
     ~OboeOutput() override;
 
@@ -24,7 +24,7 @@ public:
             int32_t numFrames) override;
 
 private:
-    std::shared_ptr<MidiEngine> mEngine;
+    MidiEngine *mEngine;
 
     std::shared_ptr<oboe::AudioStream> mStream;
 };

@@ -13,8 +13,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-WifiOutput::WifiOutput(std::shared_ptr<MidiEngine> engine, std::string host, int port)
-        : mEngine(std::move(engine)), mHost(std::move(host)), mPort(port) {}
+WifiOutput::WifiOutput(MidiEngine *engine, std::string host, int port)
+        : mEngine(engine), mHost(std::move(host)), mPort(port) {}
 
 WifiOutput::~WifiOutput() {
     stop();
@@ -42,7 +42,7 @@ void WifiOutput::start() {
 
     std::memset(&mUdpDest, 0, sizeof(mUdpDest));
     mUdpDest.sin_family = AF_INET;
-    mUdpDest.sin_port   = htons(static_cast<uint16_t>(mPort));
+    mUdpDest.sin_port = htons(static_cast<uint16_t>(mPort));
     if (inet_pton(AF_INET, mHost.c_str(), &mUdpDest.sin_addr) <= 0) {
         LOGE("Invalid UDP address: %s", mHost.c_str());
         close(mUdpSocket);
@@ -80,12 +80,17 @@ void WifiOutput::udpRenderLoop() {
     const int64_t intervalNs = static_cast<int64_t>(kFramesPerBuf) * 1'000'000'000LL / kSampleRate;
 
     while (mUdpRunning.load(std::memory_order_acquire)) {
-        for (float& s : buf) s = 0.0f;
+        for (float &s: buf) s = 0.0f;
 
         mEngine->render(buf, kFramesPerBuf);
 
         bool hasData = false;
-        for (float s : buf) { if (s != 0.0f) { hasData = true; break; } }
+        for (float s: buf) {
+            if (s != 0.0f) {
+                hasData = true;
+                break;
+            }
+        }
 
         if (hasData) {
             uint8_t opusBuf[512];
@@ -93,12 +98,12 @@ void WifiOutput::udpRenderLoop() {
                                                   opusBuf, sizeof(opusBuf));
             if (nBytes > 0)
                 sendto(mUdpSocket, opusBuf, nBytes, 0,
-                       reinterpret_cast<struct sockaddr*>(&mUdpDest), sizeof(mUdpDest));
+                       reinterpret_cast<struct sockaddr *>(&mUdpDest), sizeof(mUdpDest));
         }
 
         nextWake.tv_nsec += intervalNs;
         while (nextWake.tv_nsec >= 1'000'000'000L) {
-            nextWake.tv_sec  += 1;
+            nextWake.tv_sec += 1;
             nextWake.tv_nsec -= 1'000'000'000L;
         }
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &nextWake, nullptr);

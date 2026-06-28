@@ -11,6 +11,8 @@ class UICallback {
 public:
     UICallback() = default;
 
+    ~UICallback();
+
     void setMidiEventListener(JNIEnv *env, jobject listener);
 
     void onMidiEvent(MidiEvt evt);

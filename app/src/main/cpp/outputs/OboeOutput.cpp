@@ -50,6 +50,4 @@ OboeOutput::onAudioReady(oboe::AudioStream *, void *audioData, int32_t numFrames
     return oboe::DataCallbackResult::Continue;
 }
 
-OboeOutput::OboeOutput(std::shared_ptr<MidiEngine> engine) {
-    mEngine = std::move(engine);
-}
+OboeOutput::OboeOutput(MidiEngine *engine) : mEngine(engine) {}
