@@ -40,7 +40,7 @@ void LoopRecorder::stop() {
         storeRecord();
         changeState(State::Playing);
     } else if (s == State::Overdubbing) {
-        mEventsOverdubbed.clear();
+        storeOverdub();
         changeState(State::Playing);
     }
 }
