@@ -35,6 +35,8 @@ public:
 
     void setInstrument(int channel, const std::string &id);
 
+    void setChannelGain(int channel, float gain);
+
     void loadDrumSample(int id, const float *data, int len);
 
     void noteOn(int channel, int note, int velocity);

@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.gilbertxenodike.btmid.ui.MainScreen
+import org.gilbertxenodike.btmid.ui.MixerScreen
 import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
 
 class MainActivity : ComponentActivity() {
@@ -33,28 +34,42 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainScreen(
-                        uiState = uiState,
-                        onGrantPermissions = {
-                            permissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.BLUETOOTH_SCAN,
-                                    Manifest.permission.BLUETOOTH_CONNECT,
+                    if (uiState.mixerVisible) {
+                        MixerScreen(
+                            uiState = uiState,
+                            onBack = { vm.showMixer(false) },
+                            onSetChannelInstrument = { ch, id -> vm.setChannelInstrument(ch, id) },
+                            onSetChannelVolume = { ch, vol -> vm.setChannelVolume(ch, vol) },
+                            onAddChannel = { vm.addChannel() },
+                            onRemoveChannel = { ch -> vm.removeChannel(ch) },
+                            modifier = Modifier.padding(innerPadding),
+                        )
+                    } else {
+                        MainScreen(
+                            uiState = uiState,
+                            onGrantPermissions = {
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.BLUETOOTH_SCAN,
+                                        Manifest.permission.BLUETOOTH_CONNECT,
+                                    )
                                 )
-                            )
-                        },
-                        onStartScan = { vm.startScan() },
-                        onStopScan = { vm.stopScan() },
-                        onConnect = { vm.connect(it) },
-                        onDisconnect = { vm.disconnect() },
-                        onSetDrumBackend = { vm.setDrumBackend(it) },
-                        onSetKeyboardType = { vm.setKeyboardType(it) },
-                        onSetWaveform     = { vm.setWaveform(it)     },
-                        modifier = Modifier.padding(innerPadding),
-                        showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
-                        onSelectEngine = { vm.selectOutput(it) },
-                        onLoopControlAction =  { vm.dispatchLoopControlAction(it) },
-                    )
+                            },
+                            onStartScan = { vm.startScan() },
+                            onStopScan = { vm.stopScan() },
+                            onConnect = { vm.connect(it) },
+                            onDisconnect = { vm.disconnect() },
+                            onSetDrumBackend = { vm.setDrumBackend(it) },
+                            onSetKeyboardType = { vm.setKeyboardType(it) },
+                            onSetWaveform = { vm.setWaveform(it) },
+                            modifier = Modifier.padding(innerPadding),
+                            showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
+                            onSelectEngine = { vm.selectOutput(it) },
+                            onLoopControlAction = { vm.dispatchLoopControlAction(it) },
+                            onShowMixer = { vm.showMixer(true) },
+                            onSelectChannel = { vm.selectChannel(it) },
+                        )
+                    }
                 }
             }
         }

@@ -59,6 +59,10 @@ void AudioGraph::setInstrument(int channel, const std::string &id) {
     mRepository.setInstrument(mMidiEngine, channel, id);
 }
 
+void AudioGraph::setChannelGain(int channel, float gain) {
+    mMidiEngine.setChannelGain(channel, gain);
+}
+
 void AudioGraph::loadDrumSample(int id, const float *data, int len) {
     mRepository.loadDrumSample(id, data, len);
 }

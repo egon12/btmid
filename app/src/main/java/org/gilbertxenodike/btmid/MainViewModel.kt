@@ -38,6 +38,13 @@ sealed class AudioOutput {
 data class DeviceUiState(val address: String, val name: String)
 data class MidiEventUiModel(val description: String)
 
+data class ChannelStrip(
+    val channel: Int,
+    val label: String,
+    val instrumentId: String,
+    val volume: Float = 1f,
+)
+
 data class UiState(
     val permissionsGranted: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.Idle,
@@ -53,6 +60,12 @@ data class UiState(
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
     val loopLengthSec: Int = 0,
+    val channels: List<ChannelStrip> = listOf(
+        ChannelStrip(0, "Keyboard", "piano"),
+        ChannelStrip(9, "Drums", "noise_drum"),
+    ),
+    val selectedChannel: Int = 0,
+    val mixerVisible: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application),
@@ -89,8 +102,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             val savedWave = waveformStore.waveform.first()
             val id = instrumentId(savedType, savedWave)
             NativeAudioEngine.setInstrument(0, id)
-            _uiState.value =
-                _uiState.value.copy(keyboardType = savedType, synthWaveform = savedWave)
+            val updatedChannels = _uiState.value.channels.map {
+                if (it.channel == 0) it.copy(instrumentId = id) else it
+            }
+            _uiState.value = _uiState.value.copy(
+                keyboardType = savedType,
+                synthWaveform = savedWave,
+                channels = updatedChannels,
+            )
         }
         viewModelScope.launch {
             midiRouter.events.collect { event ->
@@ -183,22 +202,109 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
 
     fun setDrumBackend(backend: DrumBackend) {
         NativeAudioEngine.setDrumBackend(backend.ordinal)
-        _uiState.value = _uiState.value.copy(drumBackend = backend)
+        val drumId = drumBackendId(backend)
+        val updatedChannels = _uiState.value.channels.map {
+            if (it.channel == 9) it.copy(instrumentId = drumId) else it
+        }
+        _uiState.value = _uiState.value.copy(drumBackend = backend, channels = updatedChannels)
         viewModelScope.launch { drumBackendStore.save(backend) }
     }
 
     fun setKeyboardType(type: KeyboardType) {
         val id = instrumentId(type, _uiState.value.synthWaveform)
         NativeAudioEngine.setInstrument(0, id)
-        _uiState.value = _uiState.value.copy(keyboardType = type)
+        val updatedChannels = _uiState.value.channels.map {
+            if (it.channel == 0) it.copy(instrumentId = id) else it
+        }
+        _uiState.value = _uiState.value.copy(keyboardType = type, channels = updatedChannels)
         viewModelScope.launch { keyboardTypeStore.save(type) }
     }
 
     fun setWaveform(waveform: SynthWaveform) {
         val id = instrumentId(_uiState.value.keyboardType, waveform)
         NativeAudioEngine.setInstrument(0, id)
-        _uiState.value = _uiState.value.copy(synthWaveform = waveform)
+        val updatedChannels = _uiState.value.channels.map {
+            if (it.channel == 0) it.copy(instrumentId = id) else it
+        }
+        _uiState.value = _uiState.value.copy(synthWaveform = waveform, channels = updatedChannels)
         viewModelScope.launch { waveformStore.save(waveform) }
+    }
+
+    fun setChannelVolume(channel: Int, volume: Float) {
+        NativeAudioEngine.setChannelVolume(channel, volume)
+        val updatedChannels = _uiState.value.channels.map {
+            if (it.channel == channel) it.copy(volume = volume) else it
+        }
+        _uiState.value = _uiState.value.copy(channels = updatedChannels)
+    }
+
+    fun setChannelInstrument(channel: Int, id: String) {
+        NativeAudioEngine.setInstrument(channel, id)
+        val updatedChannels = _uiState.value.channels.map {
+            if (it.channel == channel) it.copy(instrumentId = id) else it
+        }
+        _uiState.value = _uiState.value.copy(channels = updatedChannels)
+        if (channel == 0) {
+            val type = keyboardTypeFromId(id)
+            val waveform = waveformFromId(id)
+            _uiState.value = _uiState.value.copy(keyboardType = type, synthWaveform = waveform)
+        }
+        if (channel == 9) {
+            val backend = drumBackendFromId(id)
+            _uiState.value = _uiState.value.copy(drumBackend = backend)
+        }
+    }
+
+    fun addChannel() {
+        val used = _uiState.value.channels.map { it.channel }.toSet()
+        val next = (0..15).firstOrNull { it != 9 && it !in used } ?: return
+        val strip = ChannelStrip(next, "Ch ${next + 1}", "piano")
+        NativeAudioEngine.setInstrument(next, "piano")
+        NativeAudioEngine.setChannelVolume(next, 1f)
+        _uiState.value = _uiState.value.copy(
+            channels = _uiState.value.channels + strip
+        )
+    }
+
+    fun removeChannel(channel: Int) {
+        if (channel == 0 || channel == 9) return
+        NativeAudioEngine.setChannelVolume(channel, 0f)
+        val updatedChannels = _uiState.value.channels.filter { it.channel != channel }
+        val newSelected = if (_uiState.value.selectedChannel == channel) 0
+                          else _uiState.value.selectedChannel
+        _uiState.value = _uiState.value.copy(channels = updatedChannels, selectedChannel = newSelected)
+    }
+
+    fun selectChannel(channel: Int) {
+        _uiState.value = _uiState.value.copy(selectedChannel = channel)
+    }
+
+    fun showMixer(visible: Boolean) {
+        _uiState.value = _uiState.value.copy(mixerVisible = visible)
+    }
+
+    private fun keyboardTypeFromId(id: String): KeyboardType = when {
+        id.endsWith("_polysynth") -> KeyboardType.Poly
+        id.endsWith("_monosynth") -> KeyboardType.Mono
+        else -> KeyboardType.Piano
+    }
+
+    private fun waveformFromId(id: String): SynthWaveform = when {
+        id.startsWith("saw") -> SynthWaveform.Saw
+        id.startsWith("square") -> SynthWaveform.Square
+        else -> SynthWaveform.Sine
+    }
+
+    private fun drumBackendFromId(id: String): DrumBackend = when (id) {
+        "fm_drum" -> DrumBackend.Fm
+        "sample_drum" -> DrumBackend.Samples
+        else -> DrumBackend.Noise
+    }
+
+    private fun drumBackendId(backend: DrumBackend): String = when (backend) {
+        DrumBackend.Noise -> "noise_drum"
+        DrumBackend.Fm -> "fm_drum"
+        DrumBackend.Samples -> "sample_drum"
     }
 
     override fun onCleared() {

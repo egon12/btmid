@@ -34,20 +34,20 @@ private val BLACK_KEY_DEFS = listOf(
 )
 
 @Composable
-fun PianoKeyboard(octave: Int = 4, modifier: Modifier = Modifier) {
+fun PianoKeyboard(channel: Int = 0, octave: Int = 4, modifier: Modifier = Modifier) {
     val noteOffset = (octave - 4) * 12
     val pressedNotes = remember { mutableStateMapOf<PointerId, Int>() }
     val activeNoteSet: Set<Int> = pressedNotes.values.toSet()
     val whitePressedColor = MaterialTheme.colorScheme.primaryContainer
     val blackPressedColor = MaterialTheme.colorScheme.primary
 
-    LaunchedEffect(octave) {
-        pressedNotes.forEach { (_, note) -> NativeAudioEngine.noteOff(0, note) }
+    LaunchedEffect(octave, channel) {
+        pressedNotes.forEach { (_, note) -> NativeAudioEngine.noteOff(channel, note) }
         pressedNotes.clear()
     }
 
     Canvas(
-        modifier = modifier.pointerInput(noteOffset) {
+        modifier = modifier.pointerInput(noteOffset, channel) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent()
@@ -61,13 +61,13 @@ fun PianoKeyboard(octave: Int = 4, modifier: Modifier = Modifier) {
                                 if (raw >= 0) {
                                     val note = raw + noteOffset
                                     pressedNotes[id] = note
-                                    NativeAudioEngine.noteOn(0, note, 100)
+                                    NativeAudioEngine.noteOn(channel, note, 100)
                                 }
                                 change.consume()
                             }
                             !change.pressed && change.previousPressed -> {
                                 pressedNotes.remove(id)?.let { note ->
-                                    NativeAudioEngine.noteOff(0, note)
+                                    NativeAudioEngine.noteOff(channel, note)
                                 }
                                 change.consume()
                             }
@@ -76,10 +76,10 @@ fun PianoKeyboard(octave: Int = 4, modifier: Modifier = Modifier) {
                                 val newNote = if (raw >= 0) raw + noteOffset else -1
                                 val oldNote = pressedNotes[id]
                                 if (newNote != oldNote) {
-                                    if (oldNote != null) NativeAudioEngine.noteOff(0, oldNote)
+                                    if (oldNote != null) NativeAudioEngine.noteOff(channel, oldNote)
                                     if (newNote >= 0) {
                                         pressedNotes[id] = newNote
-                                        NativeAudioEngine.noteOn(0, newNote, 100)
+                                        NativeAudioEngine.noteOn(channel, newNote, 100)
                                     } else {
                                         pressedNotes.remove(id)
                                     }

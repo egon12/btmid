@@ -133,6 +133,12 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loopState(
     return static_cast<jint>(GRAPH(ptr)->loopState());
 }
 
+JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setChannelVolume(
+        JNIEnv *, jobject, jlong ptr, jint channel, jfloat volume) {
+    GRAPH(ptr)->setChannelGain(channel, volume);
+}
+
 } // extern "C"
 
 extern "C"

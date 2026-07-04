@@ -47,8 +47,11 @@ public:
 
     UICallback uiCallback{};
 
+    void setChannelGain(int channel, float gain);
+
 protected:
     std::atomic<Instrument *> mChannels[16]{};
+    std::atomic<float> mChannelGain[16]{};
 
     AMidiDevice *mNativeDevice{nullptr};
     std::atomic<AMidiOutputPort *> mMidiPort{nullptr};

@@ -29,6 +29,7 @@ object NativeAudioEngine {
     fun controlChange(channel: Int, cc: Int, value: Int) = controlChange(ptr, channel, cc, value)
     fun loadSample(name: String, data: FloatArray) = loadSample(ptr, name, data)
     fun setInstrument(channel: Int, name: String) = setInstrument(ptr, channel, name)
+    fun setChannelVolume(channel: Int, volume: Float) = setChannelVolume(ptr, channel, volume)
     fun setDrumBackend(backendId: Int) = setDrumBackend(ptr, backendId)
 
     fun setOutput(audioOutput: AudioOutput) {
@@ -61,6 +62,7 @@ object NativeAudioEngine {
     private external fun controlChange(ptr: Long, channel: Int, cc: Int, value: Int)
     private external fun loadSample(ptr: Long, name: String, data: FloatArray)
     private external fun setInstrument(ptr: Long, channel: Int, name: String)
+    private external fun setChannelVolume(ptr: Long, channel: Int, volume: Float)
     private external fun setDrumBackend(ptr: Long, backendId: Int)
 
     private external fun setOutput(ptr: Long, engineId: Int, ip: String)

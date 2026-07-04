@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.gilbertxenodike.btmid.AudioOutput
+import org.gilbertxenodike.btmid.ChannelStrip
 import org.gilbertxenodike.btmid.ConnectionStatus
 import org.gilbertxenodike.btmid.DeviceUiState
 import org.gilbertxenodike.btmid.DrumBackend
@@ -61,6 +62,8 @@ fun MainScreen(
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioOutput) -> Unit,
     onLoopControlAction: (LoopControlAction) -> Unit,
+    onShowMixer: () -> Unit,
+    onSelectChannel: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -79,21 +82,17 @@ fun MainScreen(
                 midiActivityPulse = uiState.midiActivityPulse,
             )
 
-            Row {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 ScanControls(
                     connectionStatus = uiState.connectionStatus,
                     onStartScan = onStartScan,
                     onStopScan = onStopScan,
                 )
-
-                /*
-                EngineSelector(
-                    selectEngineDialogVisible = uiState.selectEngineDialogVisible,
-                    showSelectEngineDialog = showSelectEngineDialog,
-                    onSelectEngine = onSelectEngine,
-                    currentEngine = uiState.engine,
-                )
-                 */
+                OutlinedButton(onClick = onShowMixer) { Text("Mixer") }
             }
 
             if (uiState.discoveredDevices.isNotEmpty()) {
@@ -138,7 +137,11 @@ fun MainScreen(
                 )
             }
 
-            PianoKeyboardController()
+            PianoKeyboardController(
+                channel = uiState.selectedChannel,
+                channels = uiState.channels,
+                onSelectChannel = onSelectChannel,
+            )
 
             //BenchmarkSection()
 
@@ -315,6 +318,8 @@ private fun MainScreenPermissionNeededPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onShowMixer = {},
+            onSelectChannel = {},
         )
     }
 }
@@ -347,6 +352,8 @@ private fun MainScreenConnectedPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onShowMixer = {},
+            onSelectChannel = {},
         )
     }
 }
@@ -375,6 +382,8 @@ private fun MainScreenScanningPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onShowMixer = {},
+            onSelectChannel = {},
         )
     }
 }

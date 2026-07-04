@@ -9,6 +9,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -17,15 +18,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.gilbertxenodike.btmid.ChannelStrip
 import org.gilbertxenodike.btmid.synth.NativeAudioEngine
 
 @Composable
-fun PianoKeyboardController(modifier: Modifier = Modifier) {
+fun PianoKeyboardController(
+    channel: Int = 0,
+    channels: List<ChannelStrip> = emptyList(),
+    onSelectChannel: (Int) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     var octave by remember { mutableIntStateOf(4) }
     var sustained by remember { mutableStateOf(false) }
 
+    LaunchedEffect(channel) {
+        if (sustained) NativeAudioEngine.controlChange(channel, 64, 127)
+    }
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val keyboardChannels = channels.filter { !it.instrumentId.contains("drum") }
+        if (keyboardChannels.size > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                keyboardChannels.forEach { strip ->
+                    FilterChip(
+                        selected = strip.channel == channel,
+                        onClick = { onSelectChannel(strip.channel) },
+                        label = { Text("Ch ${strip.channel + 1}") },
+                    )
+                }
+            }
+        }
+
         PianoKeyboard(
+            channel = channel,
             octave = octave,
             modifier = Modifier.fillMaxWidth().height(120.dp),
         )
@@ -39,7 +67,7 @@ fun PianoKeyboardController(modifier: Modifier = Modifier) {
                 selected = sustained,
                 onClick = {
                     sustained = !sustained
-                    NativeAudioEngine.controlChange(0, 64, if (sustained) 127 else 0)
+                    NativeAudioEngine.controlChange(channel, 64, if (sustained) 127 else 0)
                 },
                 label = { Text("Sustain") },
             )

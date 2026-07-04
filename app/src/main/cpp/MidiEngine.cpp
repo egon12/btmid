@@ -2,12 +2,16 @@
 #include "UICallback.h"
 #include "MidiParser.h"
 #include <android/log.h>
+#include <algorithm>
+#include <vector>
 
 #define LOG_TAG "ChannelEngine"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 MidiEngine::MidiEngine() {
+    for (auto &g : mChannelGain) g.store(1.0f, std::memory_order_relaxed);
+
     loopRecorder.onStateChange = [this](LoopRecorder::State s) {
         uiCallback.onLoopState(s);
     };
@@ -15,6 +19,11 @@ MidiEngine::MidiEngine() {
     loopRecorder.onProgress = [this](int progress) {
         uiCallback.onLoopProgress(progress);
     };
+}
+
+void MidiEngine::setChannelGain(int channel, float gain) {
+    if (channel >= 0 && channel < 16)
+        mChannelGain[channel].store(gain, std::memory_order_relaxed);
 }
 
 void MidiEngine::setInstrument(int channel, Instrument *instrument) {
@@ -138,20 +147,26 @@ void MidiEngine::render(float *buf, int32_t frames) {
 
 void MidiEngine::renderAudio(float *buf, int32_t frames) {
     Instrument *rendered[16]{};
+    float gains[16]{};
     int renderCount = 0;
-    for (auto &ch: mChannels) {
-        Instrument *inst = ch.load(std::memory_order_acquire);
+
+    for (int c = 0; c < 16; c++) {
+        Instrument *inst = mChannels[c].load(std::memory_order_acquire);
         if (!inst) continue;
-        bool seen = false;
-        for (int j = 0; j < renderCount; ++j)
-            if (rendered[j] == inst) {
-                seen = true;
-                break;
-            }
-        if (!seen) {
-            rendered[renderCount++] = inst;
-            inst->render(buf, frames);
-        }
+        float g = mChannelGain[c].load(std::memory_order_relaxed);
+        int found = -1;
+        for (int j = 0; j < renderCount; j++)
+            if (rendered[j] == inst) { found = j; break; }
+        if (found < 0) { rendered[renderCount] = inst; gains[renderCount++] = g; }
+        else gains[found] += g;
+    }
+
+    std::vector<float> scratch(frames, 0.0f);
+    for (int i = 0; i < renderCount; i++) {
+        std::fill(scratch.begin(), scratch.end(), 0.0f);
+        rendered[i]->render(scratch.data(), frames);
+        float g = gains[i];
+        for (int j = 0; j < frames; j++) buf[j] += scratch[j] * g;
     }
 }
 
