@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
                             showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
                             onSelectEngine = { vm.selectOutput(it) },
                             onLoopControlAction = { vm.dispatchLoopControlAction(it) },
+                            onTimeSignatureChanged = { vm.setTimeSignature(it) },
                             onShowMixer = { vm.showMixer(true) },
                             onSelectChannel = { vm.selectChannel(it) },
                         )

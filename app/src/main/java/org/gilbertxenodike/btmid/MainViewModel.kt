@@ -60,6 +60,7 @@ data class UiState(
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
     val loopLengthSec: Int = 0,
+    val timeSignature: Int = 4,
     val channels: List<ChannelStrip> = listOf(
         ChannelStrip(0, "Keyboard", "piano"),
         ChannelStrip(9, "Drums", "noise_drum"),
@@ -318,6 +319,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
 
     fun showSelectEngineDialog(it: Boolean) {
         _uiState.value = _uiState.value.copy(selectEngineDialogVisible = it)
+    }
+
+    fun setTimeSignature(beats: Int) {
+        _uiState.value = _uiState.value.copy(timeSignature = beats)
     }
 
     fun dispatchLoopControlAction(action: LoopControlAction) {

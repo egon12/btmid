@@ -62,6 +62,7 @@ fun MainScreen(
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioOutput) -> Unit,
     onLoopControlAction: (LoopControlAction) -> Unit,
+    onTimeSignatureChanged: (Int) -> Unit,
     onShowMixer: () -> Unit,
     onSelectChannel: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -111,7 +112,9 @@ fun MainScreen(
             LoopControls(
                 loopState = uiState.loopState,
                 loopProgress = uiState.loopLengthSec,
+                timeSignature = uiState.timeSignature,
                 onLoopControlAction = onLoopControlAction,
+                onTimeSignatureChanged = onTimeSignatureChanged,
             )
 
             DrumEngineSelector(
@@ -318,6 +321,7 @@ private fun MainScreenPermissionNeededPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onTimeSignatureChanged = {},
             onShowMixer = {},
             onSelectChannel = {},
         )
@@ -352,6 +356,7 @@ private fun MainScreenConnectedPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onTimeSignatureChanged = {},
             onShowMixer = {},
             onSelectChannel = {},
         )
@@ -382,6 +387,7 @@ private fun MainScreenScanningPreview() {
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
+            onTimeSignatureChanged = {},
             onShowMixer = {},
             onSelectChannel = {},
         )
