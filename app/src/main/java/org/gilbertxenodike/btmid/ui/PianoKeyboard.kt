@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -33,14 +34,20 @@ private val BLACK_KEY_DEFS = listOf(
 )
 
 @Composable
-fun PianoKeyboard(modifier: Modifier = Modifier) {
+fun PianoKeyboard(octave: Int = 4, modifier: Modifier = Modifier) {
+    val noteOffset = (octave - 4) * 12
     val pressedNotes = remember { mutableStateMapOf<PointerId, Int>() }
     val activeNoteSet: Set<Int> = pressedNotes.values.toSet()
     val whitePressedColor = MaterialTheme.colorScheme.primaryContainer
     val blackPressedColor = MaterialTheme.colorScheme.primary
 
+    LaunchedEffect(octave) {
+        pressedNotes.forEach { (_, note) -> NativeAudioEngine.noteOff(0, note) }
+        pressedNotes.clear()
+    }
+
     Canvas(
-        modifier = modifier.pointerInput(Unit) {
+        modifier = modifier.pointerInput(noteOffset) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent()
@@ -50,8 +57,9 @@ fun PianoKeyboard(modifier: Modifier = Modifier) {
                         val id = change.id
                         when {
                             change.pressed && !change.previousPressed -> {
-                                val note = hitTest(change.position, w, h)
-                                if (note >= 0) {
+                                val raw = hitTest(change.position, w, h)
+                                if (raw >= 0) {
+                                    val note = raw + noteOffset
                                     pressedNotes[id] = note
                                     NativeAudioEngine.noteOn(0, note, 100)
                                 }
@@ -64,7 +72,8 @@ fun PianoKeyboard(modifier: Modifier = Modifier) {
                                 change.consume()
                             }
                             change.pressed -> {
-                                val newNote = hitTest(change.position, w, h)
+                                val raw = hitTest(change.position, w, h)
+                                val newNote = if (raw >= 0) raw + noteOffset else -1
                                 val oldNote = pressedNotes[id]
                                 if (newNote != oldNote) {
                                     if (oldNote != null) NativeAudioEngine.noteOff(0, oldNote)
@@ -83,7 +92,7 @@ fun PianoKeyboard(modifier: Modifier = Modifier) {
             }
         }
     ) {
-        drawPianoKeys(activeNoteSet, whitePressedColor, blackPressedColor)
+        drawPianoKeys(activeNoteSet, noteOffset, whitePressedColor, blackPressedColor)
     }
 }
 
@@ -105,6 +114,7 @@ private fun hitTest(pos: Offset, w: Float, h: Float): Int {
 
 private fun DrawScope.drawPianoKeys(
     pressedNotes: Set<Int>,
+    noteOffset: Int,
     whitePressedColor: Color,
     blackPressedColor: Color,
 ) {
@@ -115,7 +125,7 @@ private fun DrawScope.drawPianoKeys(
     WHITE_NOTES.forEachIndexed { index, note ->
         val x = index * whiteW
         drawRect(
-            color = if (note in pressedNotes) whitePressedColor else Color.White,
+            color = if ((note + noteOffset) in pressedNotes) whitePressedColor else Color.White,
             topLeft = Offset(x + 1f, 1f),
             size = Size(whiteW - 2f, size.height - 2f),
         )
@@ -131,7 +141,7 @@ private fun DrawScope.drawPianoKeys(
         val cx = def.centerIndex * whiteW
         val left = cx - blackW / 2f
         drawRect(
-            color = if (def.note in pressedNotes) blackPressedColor else Color.Black,
+            color = if ((def.note + noteOffset) in pressedNotes) blackPressedColor else Color.Black,
             topLeft = Offset(left, 0f),
             size = Size(blackW, blackH),
         )

@@ -17,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -139,13 +138,7 @@ fun MainScreen(
                 )
             }
 
-            PianoKeyboard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-            )
-
-            SustainButton()
+            PianoKeyboardController()
 
             //BenchmarkSection()
 
@@ -277,19 +270,6 @@ private fun BenchmarkSection() {
     }
 }
 
-@Composable
-private fun SustainButton(modifier: Modifier = Modifier) {
-    var sustained by remember { mutableStateOf(false) }
-    FilterChip(
-        modifier = modifier,
-        selected = sustained,
-        onClick = {
-            sustained = !sustained
-            NativeAudioEngine.controlChange(0, 64, if (sustained) 127 else 0)
-        },
-        label = { Text("Sustain") },
-    )
-}
 
 @Composable
 private fun PermissionBanner(onGrantPermissions: () -> Unit) {
