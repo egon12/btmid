@@ -45,19 +45,11 @@ fun LoopControls(
                         LoopState.Overdubbing -> Red
                     }
                 ),
-
-                ) {
+            ) {
                 Text(
                     "\u25CF",
                     modifier = if (loopState == LoopState.Armed) Modifier.blink() else Modifier,
                 )
-
-            }
-
-            Button(
-                onClick = { onLoopControlAction(LoopControlAction.Play) },
-            ) {
-                Text("\u25B6")
             }
 
             Button(
@@ -66,12 +58,11 @@ fun LoopControls(
                 Text("\u25a0")
             }
 
-
             OutlinedButton(
                 onClick = { onLoopControlAction(LoopControlAction.Clear) },
                 enabled = loopState == LoopState.Playing || loopState == LoopState.Idle,
             ) {
-                Text("CLEAR")
+                Text("\u2715")
             }
         }
 

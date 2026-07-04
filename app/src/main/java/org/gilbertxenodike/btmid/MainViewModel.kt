@@ -28,7 +28,7 @@ enum class DrumBackend { Noise, Fm, Samples }
 enum class KeyboardType { Piano, Poly, Mono }
 enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
-enum class LoopControlAction { Rec, Play, Stop, Clear }
+enum class LoopControlAction { Rec, Stop, Clear }
 
 sealed class AudioOutput {
     object Oboe : AudioOutput()
@@ -217,7 +217,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     fun dispatchLoopControlAction(action: LoopControlAction) {
         when (action) {
             LoopControlAction.Rec -> NativeAudioEngine.loopRecord()
-            LoopControlAction.Play -> NativeAudioEngine.loopPlay()
             LoopControlAction.Stop -> NativeAudioEngine.loopStop()
             LoopControlAction.Clear -> NativeAudioEngine.loopClear()
         }

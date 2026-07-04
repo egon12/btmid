@@ -36,7 +36,9 @@ void LoopRecorder::stop() {
     if (s == State::Playing) {
         changeState(State::Idle);
     } else if (s == State::Recording) {
-        changeState(State::Idle);
+        mStopRecordNs = nowInNs();
+        storeRecord();
+        changeState(State::Playing);
     } else if (s == State::Overdubbing) {
         mEventsOverdubbed.clear();
         changeState(State::Playing);
