@@ -87,7 +87,9 @@ app/src/main/java/org/gilbertxenodike/btmid/
     WaveformSelector.kt      — FilterChip row to switch Sine / Saw / Square waveforms (visible only for Poly/Mono)
     EngineSelector.kt        — ModalBottomSheet for choosing Oboe (local) or WiFi (UDP) audio output
     LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder
-    PianoKeyboard.kt         — one-octave Canvas keyboard (C4–B4, MIDI 60–71); multi-touch via pointerInput → NativeAudioEngine ch 0
+    MixerScreen.kt           — ModalBottomSheet: per-channel instrument selector + volume slider; add/remove channels
+    PianoKeyboard.kt         — one-octave Canvas keyboard (C4–B4, MIDI 60–71); multi-touch via pointerInput → NativeAudioEngine
+    PianoKeyboardController.kt — wraps PianoKeyboard with channel tabs (when >1 keyboard channel), octave +/−, and sustain toggle
     DrumTrigger.kt           — 4×2 grid of drum pads; press/release → NativeAudioEngine ch 9
     modifier/
       Blink.kt               — Modifier extension for infinite alpha blink animation (used by LoopControls)
@@ -367,7 +369,7 @@ Switching calls `AudioGraph::setInstrument(0, id)` which atomically swaps `mChan
 
 ### Sustain Button
 
-`SustainButton` in `MainScreen` toggles sustain pedal (CC#64) via `NativeAudioEngine.controlChange(0, 64, value)`. When pressed: value=127. When released: value=0. Affects Piano, PolyOscillator instruments.
+Sustain toggle is embedded in `PianoKeyboardController` (not a separate composable). It sends CC#64 on the currently selected channel. When pressed: value=127. When released: value=0. Affects Piano, PolyOscillator instruments.
 
 ### On-Screen Instruments
 
@@ -391,7 +393,7 @@ One-octave Canvas keyboard, C4–B4 (MIDI notes 60–71). Handles multi-touch vi
 - **REC**: starts recording (Idle→Armed) or overdub (Playing→Overdubbing). Blinks when armed.
 - **STOP**: stops recording (Recording→Playing or Overdubbing→Playing).
 - **CLEAR**: clears the loop (Playing→Idle).
-- **Time Signature button** (e.g. "4/4 ▾"): opens a dialog to pick beats-per-bar (2–7), note value (4th/8th), and bars (1/2/4/8/16). Stored in `UiState.timeSignature: TimeSignature`. Beat indicator dots show `beatsPerBar` positions during playback. C++ currently sends progress 0–3 (loop quarters); beat mapping will improve when C++ sends 0–99.
+- **Time Signature button** (e.g. "4/4 ▾"): opens a dialog to pick beats-per-bar (2–7), note value (4th/8th), and bars (1/2/4/8/16). Stored in `UiState.timeSignature: TimeSignature`. Beat indicator dots show `beatsPerBar` positions during playback. C++ sends progress 0–99 (percentage through loop); `currentBeat()` maps this to the current beat via `progress * totalBeats / 100`.
 
 Loop state is also controllable via MIDI: CC#95 ch0 = start/overdub, CC#93 ch0 = stop.
 
@@ -428,7 +430,7 @@ data class UiState(
     val keyboardType: KeyboardType = KeyboardType.Piano,
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
-    val loopLengthSec: Int = 0,              // loop progress 0–3 from C++ (quarters of loop); will be 0–99 when C++ updated
+    val loopLengthSec: Int = 0,              // loop progress 0–99 from C++ (percentage through loop)
     val timeSignature: TimeSignature = TimeSignature(),
     val channels: List<ChannelStrip> = ...,
     val selectedChannel: Int = 0,
