@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -130,14 +131,12 @@ fun MainScreen(
                     .height(160.dp)
             )
 
-            KeyboardSoundSelector(
-                selected = uiState.keyboardType,
-                onSelect = onSetKeyboardType,
-            )
-            if (uiState.keyboardType != KeyboardType.Piano) {
-                WaveformSelector(
-                    selected = uiState.synthWaveform,
-                    onSelect = onSetWaveform,
+            key(uiState.selectedChannel) {
+                KeyboardSoundSelector(
+                    selected = uiState.keyboardType,
+                    waveform = uiState.synthWaveform,
+                    onSelectType = onSetKeyboardType,
+                    onSelectWaveform = onSetWaveform,
                 )
             }
 

@@ -83,8 +83,7 @@ app/src/main/java/org/gilbertxenodike/btmid/
     DeviceListItem.kt        — single discovered-device row
     MidiActivityIndicator.kt — animated dot that flashes on each MIDI event
     DrumEngineSelector.kt    — FilterChip row to switch Noise / FM Synth / Samples at runtime
-    KeyboardSoundSelector.kt — FilterChip row to switch Piano / Poly / Mono keyboard types
-    WaveformSelector.kt      — FilterChip row to switch Sine / Saw / Square waveforms (visible only for Poly/Mono)
+    KeyboardSoundSelector.kt — single-row drill-down selector: Piano/Poly/Mono → (← back) Sine/Saw/Square
     EngineSelector.kt        — ModalBottomSheet for choosing Oboe (local) or WiFi (UDP) audio output
     LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder
     MixerScreen.kt           — ModalBottomSheet: per-channel instrument selector + volume slider; add/remove channels
@@ -348,24 +347,23 @@ The selected backend is persisted across restarts via `DrumBackendStore` (DataSt
 
 ### Keyboard Instruments
 
-Three keyboard types selectable via `KeyboardSoundSelector`:
+Three keyboard types selectable via `KeyboardSoundSelector` — a single-row drill-down composable:
 
 ```
-[ Piano ]  [ Poly ]  [ Mono ]
+[ Piano ]  [ Poly ]  [ Mono ]          ← type view (shown when Piano, or after pressing back)
+[ ← ]  [ Sine ]  [ Saw ]  [ Square ]  ← waveform view (shown when Poly or Mono selected)
 ```
 
-When Poly or Mono is selected, a `WaveformSelector` appears:
+Selecting Poly or Mono auto-navigates to the waveform row. The `←` button returns to the type row without changing the selection. `MainScreen` wraps the selector in `key(uiState.selectedChannel)` so its navigation state resets when switching channels.
 
-```
-[ Sine ]  [ Saw ]  [ Square ]
-```
+The selector always reflects the **currently selected keyboard channel**: `selectChannel()` in `MainViewModel` reads the channel's `instrumentId` and updates `keyboardType`/`synthWaveform` in UiState. `setKeyboardType()` and `setWaveform()` act on `selectedChannel` (not hardcoded channel 0). Persistence via `KeyboardTypeStore`/`WaveformStore` only fires for channel 0.
 
-The selected keyboard type and waveform are persisted via `KeyboardTypeStore` and `WaveformStore`. `MainViewModel.instrumentId(type, waveform)` maps combinations to C++ instrument IDs:
+`MainViewModel.instrumentId(type, waveform)` maps combinations to C++ instrument IDs:
 - Piano → `"piano"`
 - Poly + Sine → `"sine_polysynth"`, Poly + Saw → `"saw_polysynth"`, Poly + Square → `"square_polysynth"`
 - Mono + Sine → `"sine_monosynth"`, Mono + Saw → `"saw_monosynth"`, Mono + Square → `"square_monosynth"`
 
-Switching calls `AudioGraph::setInstrument(0, id)` which atomically swaps `mChannels[0]`.
+Switching calls `AudioGraph::setInstrument(selectedChannel, id)` which atomically swaps `mChannels[selectedChannel]`.
 
 ### Sustain Button
 

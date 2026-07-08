@@ -224,23 +224,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     }
 
     fun setKeyboardType(type: KeyboardType) {
+        val channel = _uiState.value.selectedChannel
         val id = instrumentId(type, _uiState.value.synthWaveform)
-        NativeAudioEngine.setInstrument(0, id)
+        NativeAudioEngine.setInstrument(channel, id)
         val updatedChannels = _uiState.value.channels.map {
-            if (it.channel == 0) it.copy(instrumentId = id) else it
+            if (it.channel == channel) it.copy(instrumentId = id) else it
         }
         _uiState.value = _uiState.value.copy(keyboardType = type, channels = updatedChannels)
-        viewModelScope.launch { keyboardTypeStore.save(type) }
+        if (channel == 0) viewModelScope.launch { keyboardTypeStore.save(type) }
     }
 
     fun setWaveform(waveform: SynthWaveform) {
+        val channel = _uiState.value.selectedChannel
         val id = instrumentId(_uiState.value.keyboardType, waveform)
-        NativeAudioEngine.setInstrument(0, id)
+        NativeAudioEngine.setInstrument(channel, id)
         val updatedChannels = _uiState.value.channels.map {
-            if (it.channel == 0) it.copy(instrumentId = id) else it
+            if (it.channel == channel) it.copy(instrumentId = id) else it
         }
         _uiState.value = _uiState.value.copy(synthWaveform = waveform, channels = updatedChannels)
-        viewModelScope.launch { waveformStore.save(waveform) }
+        if (channel == 0) viewModelScope.launch { waveformStore.save(waveform) }
     }
 
     fun setChannelVolume(channel: Int, volume: Float) {
@@ -257,7 +259,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             if (it.channel == channel) it.copy(instrumentId = id) else it
         }
         _uiState.value = _uiState.value.copy(channels = updatedChannels)
-        if (channel == 0) {
+        if (channel == _uiState.value.selectedChannel && !id.contains("drum")) {
             val type = keyboardTypeFromId(id)
             val waveform = waveformFromId(id)
             _uiState.value = _uiState.value.copy(keyboardType = type, synthWaveform = waveform)
@@ -289,7 +291,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     }
 
     fun selectChannel(channel: Int) {
-        _uiState.value = _uiState.value.copy(selectedChannel = channel)
+        val strip = _uiState.value.channels.find { it.channel == channel }
+        val type = strip?.let { keyboardTypeFromId(it.instrumentId) } ?: KeyboardType.Piano
+        val waveform = strip?.let { waveformFromId(it.instrumentId) } ?: SynthWaveform.Sine
+        _uiState.value = _uiState.value.copy(
+            selectedChannel = channel,
+            keyboardType = type,
+            synthWaveform = waveform,
+        )
     }
 
     fun showMixer(visible: Boolean) {
