@@ -30,6 +30,15 @@ enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
 enum class LoopControlAction { Rec, Stop, Clear }
 
+data class TimeSignature(
+    val beatsPerBar: Int = 4,
+    val noteValue: Int = 4,
+    val bars: Int = 1,
+) {
+    val label: String
+        get() = if (bars == 1) "$beatsPerBar/$noteValue" else "${bars}×$beatsPerBar/$noteValue"
+}
+
 sealed class AudioOutput {
     object Oboe : AudioOutput()
     data class Wifi(val host: String, val port: Int) : AudioOutput()
@@ -60,7 +69,7 @@ data class UiState(
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
     val loopLengthSec: Int = 0,
-    val timeSignature: Int = 4,
+    val timeSignature: TimeSignature = TimeSignature(),
     val channels: List<ChannelStrip> = listOf(
         ChannelStrip(0, "Keyboard", "piano"),
         ChannelStrip(9, "Drums", "noise_drum"),
@@ -90,6 +99,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     init {
         NativeAudioEngine.start()
         NativeAudioEngine.setLoopStateListener(this)
+        val alreadyGranted = checkSelfPermission(application, BLUETOOTH_SCAN) == PERMISSION_GRANTED &&
+                checkSelfPermission(application, BLUETOOTH_CONNECT) == PERMISSION_GRANTED
+        if (alreadyGranted) _uiState.value = _uiState.value.copy(permissionsGranted = true)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { sampleBank.load() }
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
@@ -321,8 +333,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         _uiState.value = _uiState.value.copy(selectEngineDialogVisible = it)
     }
 
-    fun setTimeSignature(beats: Int) {
-        _uiState.value = _uiState.value.copy(timeSignature = beats)
+    fun setTimeSignature(sig: TimeSignature) {
+        _uiState.value = _uiState.value.copy(timeSignature = sig)
     }
 
     fun dispatchLoopControlAction(action: LoopControlAction) {

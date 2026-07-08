@@ -86,7 +86,7 @@ app/src/main/java/org/gilbertxenodike/btmid/
     KeyboardSoundSelector.kt — FilterChip row to switch Piano / Poly / Mono keyboard types
     WaveformSelector.kt      — FilterChip row to switch Sine / Saw / Square waveforms (visible only for Poly/Mono)
     EngineSelector.kt        — ModalBottomSheet for choosing Oboe (local) or WiFi (UDP) audio output
-    LoopControls.kt          — REC/STOP/CLEAR buttons for MIDI loop recorder with armed-state blinking
+    LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder
     PianoKeyboard.kt         — one-octave Canvas keyboard (C4–B4, MIDI 60–71); multi-touch via pointerInput → NativeAudioEngine ch 0
     DrumTrigger.kt           — 4×2 grid of drum pads; press/release → NativeAudioEngine ch 9
     modifier/
@@ -386,11 +386,12 @@ One-octave Canvas keyboard, C4–B4 (MIDI notes 60–71). Handles multi-touch vi
 
 ### Loop Recorder
 
-`LoopControls` in `MainScreen` provides three buttons for the MIDI loop recorder:
+`LoopControls` in `MainScreen` provides three buttons for the MIDI loop recorder plus a time-signature button:
 
 - **REC**: starts recording (Idle→Armed) or overdub (Playing→Overdubbing). Blinks when armed.
 - **STOP**: stops recording (Recording→Playing or Overdubbing→Playing).
 - **CLEAR**: clears the loop (Playing→Idle).
+- **Time Signature button** (e.g. "4/4 ▾"): opens a dialog to pick beats-per-bar (2–7), note value (4th/8th), and bars (1/2/4/8/16). Stored in `UiState.timeSignature: TimeSignature`. Beat indicator dots show `beatsPerBar` positions during playback. C++ currently sends progress 0–3 (loop quarters); beat mapping will improve when C++ sends 0–99.
 
 Loop state is also controllable via MIDI: CC#95 ch0 = start/overdub, CC#93 ch0 = stop.
 
@@ -405,8 +406,16 @@ enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
 sealed class AudioEngine { Oboe; Wifi(host: String, port: Int) }
 
+data class TimeSignature(
+    val beatsPerBar: Int = 4,
+    val noteValue: Int = 4,   // denominator: 4 = quarter note, 8 = eighth note
+    val bars: Int = 1,        // loop length in bars (1, 2, 4, 8, 16)
+) {
+    val label: String get() = if (bars == 1) "$beatsPerBar/$noteValue" else "${bars}×$beatsPerBar/$noteValue"
+}
+
 data class UiState(
-    val permissionsGranted: Boolean = false,
+    val permissionsGranted: Boolean = false,   // checked against system at ViewModel init
     val connectionStatus: ConnectionStatus = ConnectionStatus.Idle,
     val discoveredDevices: List<DeviceUiState> = emptyList(),
     val connectedDeviceAddress: String? = null,
@@ -419,7 +428,11 @@ data class UiState(
     val keyboardType: KeyboardType = KeyboardType.Piano,
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
-    val loopLengthSec: Float = 0f,
+    val loopLengthSec: Int = 0,              // loop progress 0–3 from C++ (quarters of loop); will be 0–99 when C++ updated
+    val timeSignature: TimeSignature = TimeSignature(),
+    val channels: List<ChannelStrip> = ...,
+    val selectedChannel: Int = 0,
+    val mixerVisible: Boolean = false,
 )
 ```
 

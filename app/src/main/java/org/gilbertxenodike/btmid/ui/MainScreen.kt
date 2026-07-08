@@ -44,6 +44,7 @@ import org.gilbertxenodike.btmid.KeyboardType
 import org.gilbertxenodike.btmid.LoopControlAction
 import org.gilbertxenodike.btmid.SynthWaveform
 import org.gilbertxenodike.btmid.MidiEventUiModel
+import org.gilbertxenodike.btmid.TimeSignature
 import org.gilbertxenodike.btmid.UiState
 import org.gilbertxenodike.btmid.synth.NativeAudioEngine
 import org.gilbertxenodike.btmid.ui.theme.BtmidTheme
@@ -62,7 +63,7 @@ fun MainScreen(
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioOutput) -> Unit,
     onLoopControlAction: (LoopControlAction) -> Unit,
-    onTimeSignatureChanged: (Int) -> Unit,
+    onTimeSignatureChanged: (TimeSignature) -> Unit,
     onShowMixer: () -> Unit,
     onSelectChannel: (Int) -> Unit,
     modifier: Modifier = Modifier,
