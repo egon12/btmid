@@ -39,7 +39,7 @@ import org.gilbertxenodike.btmid.ui.theme.SoftRed
 
 private fun currentBeat(progress: Int, sig: TimeSignature): Int {
     val totalBeats = sig.beatsPerBar * sig.bars
-    val beatInLoop = progress * totalBeats / 4
+    val beatInLoop = progress * totalBeats / 100
     return beatInLoop % sig.beatsPerBar
 }
 
