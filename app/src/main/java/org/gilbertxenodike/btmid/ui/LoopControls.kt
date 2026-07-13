@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,8 +49,10 @@ fun LoopControls(
     loopState: LoopState,
     loopProgress: Int,
     timeSignature: TimeSignature,
+    metronomeEnabled: Boolean,
     onLoopControlAction: (LoopControlAction) -> Unit,
     onTimeSignatureChanged: (TimeSignature) -> Unit,
+    onToggleMetronome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var dialogOpen by remember { mutableStateOf(false) }
@@ -138,6 +141,12 @@ fun LoopControls(
                 Text("✕")
             }
 
+            FilterChip(
+                selected = metronomeEnabled,
+                onClick = onToggleMetronome,
+                label = { Text("♩") },
+            )
+
             Spacer(Modifier.weight(1f))
 
             if (showBeats) {
@@ -156,6 +165,7 @@ private fun TimeSignatureDialog(
     var beatsPerBar by remember { mutableIntStateOf(current.beatsPerBar) }
     var noteValue by remember { mutableIntStateOf(current.noteValue) }
     var bars by remember { mutableIntStateOf(current.bars) }
+    var bpm by remember { mutableIntStateOf(current.bpm) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -195,15 +205,36 @@ private fun TimeSignatureDialog(
                     }
                 }
 
+                Text("BPM", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    OutlinedButton(onClick = { bpm = (bpm - 10).coerceIn(40, 240) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text("-10") }
+                    OutlinedButton(onClick = { bpm = (bpm - 1).coerceIn(40, 240) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text("-1") }
+                    Text(
+                        text = "$bpm",
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                    OutlinedButton(onClick = { bpm = (bpm + 1).coerceIn(40, 240) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text("+1") }
+                    OutlinedButton(onClick = { bpm = (bpm + 10).coerceIn(40, 240) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text("+10") }
+                }
+
                 Text(
-                    text = TimeSignature(beatsPerBar, noteValue, bars).label,
+                    text = TimeSignature(beatsPerBar, noteValue, bars, bpm).label,
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(TimeSignature(beatsPerBar, noteValue, bars)) }) {
+            TextButton(onClick = { onConfirm(TimeSignature(beatsPerBar, noteValue, bars, bpm)) }) {
                 Text("OK")
             }
         },
@@ -236,13 +267,17 @@ private fun BeatIndicators(beats: Int, currentBeat: Int) {
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsIdlePreview() {
-    BtmidTheme { LoopControls(LoopState.Idle, 0, TimeSignature(), {}, {}, Modifier.padding(16.dp)) }
+    BtmidTheme {
+        LoopControls(LoopState.Idle, 0, TimeSignature(), false, {}, {}, {}, Modifier.padding(16.dp))
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun LoopControlsPlayingPreview() {
-    BtmidTheme { LoopControls(LoopState.Playing, 2, TimeSignature(), {}, {}, Modifier.padding(16.dp)) }
+    BtmidTheme {
+        LoopControls(LoopState.Playing, 2, TimeSignature(), true, {}, {}, {}, Modifier.padding(16.dp))
+    }
 }
 
 @Preview(showBackground = true)
@@ -251,7 +286,7 @@ private fun LoopControlsPlayingCustomPreview() {
     BtmidTheme {
         LoopControls(
             LoopState.Playing, 1, TimeSignature(beatsPerBar = 3, bars = 4),
-            {}, {}, Modifier.padding(16.dp)
+            false, {}, {}, {}, Modifier.padding(16.dp)
         )
     }
 }

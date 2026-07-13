@@ -8,6 +8,7 @@ add_subdirectory(opus)
 add_library(btmid SHARED
 	MidiParser.cpp
 	LoopRecorder.cpp
+	Metronome.cpp
 	MidiEngine.cpp
 	UICallback.cpp
 	outputs/OboeOutput.cpp

@@ -97,6 +97,12 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_benchmarkPianos(JNIEnv *e
 }
 
 JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setMetronome(
+        JNIEnv *, jobject, jlong ptr, jboolean enabled, jint bpm, jint beatsPerBar) {
+    GRAPH(ptr)->setMetronome(enabled, bpm, beatsPerBar);
+}
+
+JNIEXPORT void JNICALL
 Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_setLoopStateListener(
         JNIEnv *env, jobject, jlong ptr, jobject listener) {
     GRAPH(ptr)->setLoopStateListener(env, listener);

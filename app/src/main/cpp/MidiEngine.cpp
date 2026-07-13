@@ -143,6 +143,11 @@ void MidiEngine::render(float *buf, int32_t frames) {
     pollMidi();
     advanceLoop(frames);
     renderAudio(buf, frames);
+    mMetronome.render(buf, frames);
+}
+
+void MidiEngine::setMetronome(bool enabled, int bpm, int beatsPerBar) {
+    mMetronome.setParams(enabled, bpm, beatsPerBar);
 }
 
 void MidiEngine::renderAudio(float *buf, int32_t frames) {

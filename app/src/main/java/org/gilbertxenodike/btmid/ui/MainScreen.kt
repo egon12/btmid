@@ -65,6 +65,7 @@ fun MainScreen(
     onSelectEngine: (AudioOutput) -> Unit,
     onLoopControlAction: (LoopControlAction) -> Unit,
     onTimeSignatureChanged: (TimeSignature) -> Unit,
+    onToggleMetronome: () -> Unit,
     onShowMixer: () -> Unit,
     onSelectChannel: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -115,8 +116,10 @@ fun MainScreen(
                 loopState = uiState.loopState,
                 loopProgress = uiState.loopLengthSec,
                 timeSignature = uiState.timeSignature,
+                metronomeEnabled = uiState.metronomeEnabled,
                 onLoopControlAction = onLoopControlAction,
                 onTimeSignatureChanged = onTimeSignatureChanged,
+                onToggleMetronome = onToggleMetronome,
             )
 
             DrumEngineSelector(
@@ -322,6 +325,7 @@ private fun MainScreenPermissionNeededPreview() {
             onSelectEngine = {},
             onLoopControlAction = {},
             onTimeSignatureChanged = {},
+            onToggleMetronome = {},
             onShowMixer = {},
             onSelectChannel = {},
         )
@@ -357,6 +361,7 @@ private fun MainScreenConnectedPreview() {
             onSelectEngine = {},
             onLoopControlAction = {},
             onTimeSignatureChanged = {},
+            onToggleMetronome = {},
             onShowMixer = {},
             onSelectChannel = {},
         )
@@ -388,6 +393,7 @@ private fun MainScreenScanningPreview() {
             onSelectEngine = {},
             onLoopControlAction = {},
             onTimeSignatureChanged = {},
+            onToggleMetronome = {},
             onShowMixer = {},
             onSelectChannel = {},
         )

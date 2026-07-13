@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
                             onSelectEngine = { vm.selectOutput(it) },
                             onLoopControlAction = { vm.dispatchLoopControlAction(it) },
                             onTimeSignatureChanged = { vm.setTimeSignature(it) },
+                            onToggleMetronome = { vm.toggleMetronome() },
                             onShowMixer = { vm.showMixer(true) },
                             onSelectChannel = { vm.selectChannel(it) },
                         )

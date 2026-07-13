@@ -45,6 +45,8 @@ public:
 
     void controlChange(int channel, int cc, int value);
 
+    void setMetronome(bool enabled, int bpm, int beatsPerBar);
+
     void setLoopStateListener(JNIEnv *env, jobject jCallback);
 
     void loopRecord();

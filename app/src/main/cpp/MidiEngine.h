@@ -5,6 +5,7 @@
 #include <atomic>
 #include "SpscRing.h"
 #include "LoopRecorder.h"
+#include "Metronome.h"
 #include "UICallback.h"
 #include "MidiEvt.h"
 #include "Instrument.h"
@@ -43,8 +44,10 @@ public:
     // Render each unique instrument in mChannels into buf (deduplicates by pointer).
     void render(float *buf, int32_t frames);
 
-    LoopRecorder loopRecorder{};
+    void setMetronome(bool enabled, int bpm, int beatsPerBar);
 
+    LoopRecorder loopRecorder{};
+    Metronome mMetronome{};
     UICallback uiCallback{};
 
     void setChannelGain(int channel, float gain);

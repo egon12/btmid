@@ -44,6 +44,9 @@ object NativeAudioEngine {
 
     fun closeMidiDevice() = closeMidiDevice(ptr)
 
+    fun setMetronome(enabled: Boolean, bpm: Int, beatsPerBar: Int) =
+        setMetronome(ptr, enabled, bpm, beatsPerBar)
+
     fun setLoopStateListener(callback: LoopStateListener) = setLoopStateListener(ptr, callback)
     fun loopRecord() = loopRecord(ptr)
     fun loopPlay() = loopPlay(ptr)
@@ -69,6 +72,7 @@ object NativeAudioEngine {
     private external fun openMidiDevice(ptr: Long, device: MidiDevice, listener: MidiEventListener)
     private external fun closeMidiDevice(ptr: Long)
 
+    private external fun setMetronome(ptr: Long, enabled: Boolean, bpm: Int, beatsPerBar: Int)
     private external fun setLoopStateListener(ptr: Long, callback: LoopStateListener)
     private external fun loopRecord(ptr: Long)
     private external fun loopPlay(ptr: Long)

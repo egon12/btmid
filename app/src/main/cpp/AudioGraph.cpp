@@ -87,6 +87,10 @@ void AudioGraph::closeMidiDevice() {
     mMidiEngine.closeMidiDevice();
 }
 
+void AudioGraph::setMetronome(bool enabled, int bpm, int beatsPerBar) {
+    mMidiEngine.setMetronome(enabled, bpm, beatsPerBar);
+}
+
 void AudioGraph::setLoopStateListener(JNIEnv *env, jobject jCallback) {
     mMidiEngine.uiCallback.setLoopStateListener(env, jCallback);
 }

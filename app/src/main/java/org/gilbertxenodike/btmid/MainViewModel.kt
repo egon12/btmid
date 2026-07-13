@@ -34,6 +34,7 @@ data class TimeSignature(
     val beatsPerBar: Int = 4,
     val noteValue: Int = 4,
     val bars: Int = 1,
+    val bpm: Int = 120,
 ) {
     val label: String
         get() = if (bars == 1) "$beatsPerBar/$noteValue" else "${bars}×$beatsPerBar/$noteValue"
@@ -76,6 +77,7 @@ data class UiState(
     ),
     val selectedChannel: Int = 0,
     val mixerVisible: Boolean = false,
+    val metronomeEnabled: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application),
@@ -344,6 +346,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
 
     fun setTimeSignature(sig: TimeSignature) {
         _uiState.value = _uiState.value.copy(timeSignature = sig)
+        NativeAudioEngine.setMetronome(_uiState.value.metronomeEnabled, sig.bpm, sig.beatsPerBar)
+    }
+
+    fun toggleMetronome() {
+        val enabled = !_uiState.value.metronomeEnabled
+        val sig = _uiState.value.timeSignature
+        _uiState.value = _uiState.value.copy(metronomeEnabled = enabled)
+        NativeAudioEngine.setMetronome(enabled, sig.bpm, sig.beatsPerBar)
     }
 
     fun dispatchLoopControlAction(action: LoopControlAction) {
