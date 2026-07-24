@@ -14,3 +14,7 @@
 .cxx
 local.properties
 cpp_host_tests/build
+
+# Fetched at CMake configure time (see app/src/main/cpp/CMakeLists.txt)
+/app/src/main/cpp/tsf.h
+/cpp_host_tests/miniaudio.h

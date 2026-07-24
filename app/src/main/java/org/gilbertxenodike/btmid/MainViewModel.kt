@@ -22,10 +22,11 @@ import org.gilbertxenodike.btmid.midi.MidiEvent
 import org.gilbertxenodike.btmid.midi.MidiRouter
 import org.gilbertxenodike.btmid.synth.NativeAudioEngine
 import org.gilbertxenodike.btmid.synth.SampleBank
+import org.gilbertxenodike.btmid.synth.SoundFontBank
 
 enum class ConnectionStatus { Idle, Scanning, Connected }
 enum class DrumBackend { Noise, Fm, Samples }
-enum class KeyboardType { Piano, Poly, Mono }
+enum class KeyboardType { Piano, Poly, Mono, SoundFont }
 enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
 enum class LoopControlAction { Rec, Stop, Clear }
@@ -64,6 +65,7 @@ data class UiState(
     val midiActivityPulse: Boolean = false,
     val drumBackend: DrumBackend = DrumBackend.Noise,
     val samplesLoaded: Boolean = false,
+    val soundFontLoaded: Boolean = false,
     val engine: AudioOutput = AudioOutput.Oboe,
     val selectEngineDialogVisible: Boolean = false,
     val keyboardType: KeyboardType = KeyboardType.Piano,
@@ -90,6 +92,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         .adapter
 
     private val sampleBank = SampleBank(application)
+    private val soundFontBank = SoundFontBank(application)
     private val midiRouter = MidiRouter()
     private val bleScanner = BleScanner(application)
     private val bleMidiConnection = BleMidiConnection(application)
@@ -107,6 +110,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         viewModelScope.launch {
             withContext(Dispatchers.IO) { sampleBank.load() }
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
+        }
+        viewModelScope.launch {
+            // The .sf2 asset is user-supplied; a missing/invalid file must not
+            // crash startup — the SF chip simply stays disabled.
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching { soundFontBank.load() }.isSuccess
+            }
+            _uiState.value = _uiState.value.copy(soundFontLoaded = loaded)
         }
         viewModelScope.launch {
             val saved = drumBackendStore.drumBackend.first()
@@ -210,6 +221,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
 
     private fun instrumentId(type: KeyboardType, waveform: SynthWaveform): String {
         if (type == KeyboardType.Piano) return "piano"
+        if (type == KeyboardType.SoundFont) return "soundfont"
         val wavePart = waveform.name.lowercase()
         val typePart = if (type == KeyboardType.Poly) "polysynth" else "monosynth"
         return "${wavePart}_${typePart}"
@@ -308,6 +320,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     }
 
     private fun keyboardTypeFromId(id: String): KeyboardType = when {
+        id == "soundfont" -> KeyboardType.SoundFont
         id.endsWith("_polysynth") -> KeyboardType.Poly
         id.endsWith("_monosynth") -> KeyboardType.Mono
         else -> KeyboardType.Piano

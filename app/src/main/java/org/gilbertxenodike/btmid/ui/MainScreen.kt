@@ -138,6 +138,7 @@ fun MainScreen(
                 KeyboardSoundSelector(
                     selected = uiState.keyboardType,
                     waveform = uiState.synthWaveform,
+                    soundFontLoaded = uiState.soundFontLoaded,
                     onSelectType = onSetKeyboardType,
                     onSelectWaveform = onSetWaveform,
                 )

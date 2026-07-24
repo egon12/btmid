@@ -79,6 +79,15 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSample(
 }
 
 JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSoundFont(
+        JNIEnv *env, jobject, jlong ptr, jbyteArray jdata) {
+    int length = env->GetArrayLength(jdata);
+    jbyte *data = env->GetByteArrayElements(jdata, nullptr);
+    GRAPH(ptr)->loadSoundFont(reinterpret_cast<const uint8_t *>(data), length);
+    env->ReleaseByteArrayElements(jdata, data, JNI_ABORT);
+}
+
+JNIEXPORT void JNICALL
 Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_openMidiDevice(
         JNIEnv *env, jobject, jlong ptr, jobject jDevice, jobject jListener) {
     GRAPH(ptr)->openMidiDevice(env, jDevice, jListener);

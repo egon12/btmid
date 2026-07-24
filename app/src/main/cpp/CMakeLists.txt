@@ -3,6 +3,16 @@ project(btmid)
 
 find_package(oboe REQUIRED CONFIG)
 
+# TinySoundFont (MIT) — single-header SoundFont synth, fetched at configure time
+# rather than vendored into the repo.
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tsf.h")
+	file(DOWNLOAD
+		"https://raw.githubusercontent.com/schellingb/TinySoundFont/master/tsf.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/tsf.h"
+		SHOW_PROGRESS
+	)
+endif()
+
 add_subdirectory(opus)
 
 add_library(btmid SHARED
@@ -22,12 +32,14 @@ add_library(btmid SHARED
 	instruments/PianoSinTable.cpp
 	instruments/PolyOscillator.cpp
 	instruments/MonoOscillator.cpp
+	instruments/SfInstrument.cpp
 	PianoBenchmark.cpp
 	jni_bridge.cpp
 )
 
 target_include_directories(btmid PRIVATE
 	opus/include
+	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 

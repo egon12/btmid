@@ -39,6 +39,8 @@ public:
 
     void loadDrumSample(int id, const float *data, int len);
 
+    void loadSoundFont(const uint8_t *data, int len);
+
     void noteOn(int channel, int note, int velocity);
 
     void noteOff(int channel, int note);
