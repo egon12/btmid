@@ -5,6 +5,7 @@
 #include "instruments/SampleDrum.h"
 #include "instruments/PolyOscillator.h"
 #include "instruments/MonoOscillator.h"
+#include "instruments/SfInstrument.h"
 
 InstrumentRepository::InstrumentRepository() {
     // Create SampleDrum eagerly so loadDrumSample() always has a target, regardless
@@ -12,6 +13,11 @@ InstrumentRepository::InstrumentRepository() {
     auto sdr = std::make_unique<SampleDrum>();
     mSampleDrum = sdr.get();
     mInstruments["sample_drum"] = std::move(sdr);
+
+    // Same rationale for the SoundFont: loadSoundFont() always has a target.
+    auto sf = std::make_unique<SfInstrument>();
+    mSoundFont = sf.get();
+    mInstruments["soundfont"] = std::move(sf);
 }
 
 Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
@@ -56,4 +62,8 @@ void InstrumentRepository::setInstrument(MidiEngine& engine, int channel, const 
 
 void InstrumentRepository::loadDrumSample(int id, const float* data, int len) {
     if (mSampleDrum) mSampleDrum->loadSample(id, data, len);
+}
+
+void InstrumentRepository::loadSoundFont(const uint8_t* data, int len) {
+    if (mSoundFont) mSoundFont->loadSoundFont(data, len);
 }

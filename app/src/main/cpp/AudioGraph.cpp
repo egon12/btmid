@@ -67,6 +67,10 @@ void AudioGraph::loadDrumSample(int id, const float *data, int len) {
     mRepository.loadDrumSample(id, data, len);
 }
 
+void AudioGraph::loadSoundFont(const uint8_t *data, int len) {
+    mRepository.loadSoundFont(data, len);
+}
+
 void AudioGraph::noteOn(int ch, int note, int vel) {
     mMidiEngine.noteOn(ch, note, vel);
 }

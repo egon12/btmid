@@ -4,6 +4,15 @@ project(btmid_renderer_tests CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/miniaudio.h")
+    file(DOWNLOAD
+        "https://github.com/mackron/miniaudio/raw/refs/heads/master/miniaudio.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/miniaudio.h"
+        SHOW_PROGRESS
+    )
+endif()
+
 set(ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/cpp)
 
 add_executable(renderer_test

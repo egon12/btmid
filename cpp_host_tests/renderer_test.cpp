@@ -9,6 +9,9 @@
 #include "instruments/WaveTable.h"
 #include "wav_writer.h"
 
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
+
 static int gPass = 0, gFail = 0;
 
 #define CHECK(cond, msg) \
@@ -27,6 +30,64 @@ static bool allZero(const float* buf, int n) {
     for (int i = 0; i < n; ++i) if (buf[i] != 0.0f) return false;
     return true;
 }
+
+void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+{
+    Piano *piano = (Piano*)pDevice->pUserData;
+    
+    if (piano == NULL) {
+        return;
+    }
+
+    piano->render((float*)pOutput, frameCount);
+
+    // (Optional) Unused parameter silencing to avoid compiler warnings
+    (void)pInput;
+}
+
+
+static void play_sound() {
+    Piano r;
+
+
+
+    ma_device_config deviceConfig;
+    deviceConfig = ma_device_config_init(ma_device_type_playback);
+    deviceConfig.playback.format   = ma_format_f32; // 32-bit floating point
+    deviceConfig.playback.channels = 1;             // Stereo
+    deviceConfig.sampleRate        = 48000;         // 44.1 kHz standard
+    deviceConfig.dataCallback      = data_callback; // Our callback above
+    deviceConfig.pUserData         = &r;            // Pass context to callback
+
+    // 4. Initialize and start the miniaudio playback device
+    ma_device device;
+    if (ma_device_init(NULL, &deviceConfig, &device) != MA_SUCCESS) {
+        printf("Failed to open playback device.\n");
+        return;
+    }
+
+    if (ma_device_start(&device) != MA_SUCCESS) {
+        printf("Failed to start playback device.\n");
+        ma_device_uninit(&device);
+        return;
+    }
+
+    // C major chord: C4=60, E4=64, G4=67
+    r.noteOn(0, 60, 100);
+    r.noteOn(0, 64, 100);
+    r.noteOn(0, 67, 100);
+    sleep(1);
+
+    r.noteOff(0, 60);
+    r.noteOff(0, 64);
+    r.noteOff(0, 67);
+    sleep(2);
+
+
+    ma_device_uninit(&device);
+}
+
+
 
 // --- tests ---
 static void write_wav_wave_table() {
@@ -50,6 +111,7 @@ static void write_wav_wave_table() {
         fprintf(f, "%f\n", out_saw[i]);
     }
     fclose(f);
+
 
     writeWav("wave_table_sin.wav", out_sin.data(), totalSamples, sampleRate);
     printf("INFO  wrote wave_table_sin.wav (sin in 440 Hz)\n");
@@ -281,7 +343,8 @@ static void test_piano_sustain_audible() {
     // Drain attack (220) + decay (3528) samples, then check sustain is still audible
     Piano r;
     r.noteOn(0, 60, 127);
-    const int drain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
+    //const int drain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
+    const int drain = 240 + 3840 + 256;
     std::vector<float> tmp(drain, 0.0f);
     for (int i = 0; i < drain; i += 256) {
         int n = std::min(256, drain - i);
@@ -297,7 +360,8 @@ static void test_piano_silent_after_release() {
     Piano r;
     r.noteOn(0, 60, 127);
     // Reach sustain
-    const int toSustain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
+    //const int toSustain = Piano::kAttackSamples + Piano::kDecaySamples + 256;
+    const int toSustain = 240 + 3840 + 256;
     std::vector<float> tmp(toSustain, 0.0f);
     for (int i = 0; i < toSustain; i += 256) {
         int n = std::min(256, toSustain - i);
@@ -413,6 +477,10 @@ static void write_wav_piano_sin_table() {
 }
 
 int main() {
+    play_sound();
+    return 0;
+
+
     printf("=== WaveTable ===\n");
     write_wav_wave_table();
 
