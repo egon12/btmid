@@ -45,6 +45,10 @@ public:
 
     void onUiMidiEvent(MidiMsg m);
 
+    int32_t getTempo();
+
+    //void setTempo(int32_t);
+
 private:
     const float mTimestampToFrame = static_cast<float>(kSampleRate) / 1'000'000'000.0;
 

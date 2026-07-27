@@ -190,3 +190,7 @@ int64_t LoopRecorder::nowInNs() {
     auto res = clock_gettime(CLOCK_MONOTONIC, &time);
     return time.tv_sec * 1000000000L + time.tv_nsec;
 }
+
+int32_t LoopRecoder::getTempo() {
+
+}
