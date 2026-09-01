@@ -191,6 +191,6 @@ int64_t LoopRecorder::nowInNs() {
     return time.tv_sec * 1000000000L + time.tv_nsec;
 }
 
-int32_t LoopRecoder::getTempo() {
-
+int32_t LoopRecorder::getTempo() {
+    return 0;
 }
