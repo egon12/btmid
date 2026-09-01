@@ -54,7 +54,7 @@ android {
         prefab = true
     }
     androidResources {
-        noCompress += listOf("ogg")
+        noCompress += listOf("ogg", "sf2")
     }
 }
 

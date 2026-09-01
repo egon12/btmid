@@ -28,10 +28,18 @@ void SfInstrument::loadSoundFont(const uint8_t* data, int len) {
     mSf.store(f, std::memory_order_release);
 }
 
-void SfInstrument::loadSoundFile(const char* filename) {
+void SfInstrument::loadSoundFontFile(const char* filename) {
+    if (!filename) return;
 
-	tsf* f = tsf_load
+    tsf* f = tsf_load_filename(filename);
+    if (!f) return;
 
+    tsf_set_output(f, TSF_MONO, kSampleRate, 0.0f);
+    tsf_channel_set_bank_preset(f, kTsfChannel, 0, 0);
+
+    // Load-once: publish for the audio thread. We never replace an in-use
+    // pointer, so no deferred free is needed.
+    mSf.store(f, std::memory_order_release);
 }
 
 void SfInstrument::noteOn(int, int note, int velocity) {
