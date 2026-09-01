@@ -28,6 +28,12 @@ void SfInstrument::loadSoundFont(const uint8_t* data, int len) {
     mSf.store(f, std::memory_order_release);
 }
 
+void SfInstrument::loadSoundFile(const char* filename) {
+
+	tsf* f = tsf_load
+
+}
+
 void SfInstrument::noteOn(int, int note, int velocity) {
     mQueue.push({NoteOn, (uint8_t)note, (uint8_t)velocity});
 }

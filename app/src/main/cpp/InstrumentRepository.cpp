@@ -47,7 +47,7 @@ Instrument* InstrumentRepository::getOrCreate(const std::string& id) {
         inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Saw);
     } else if (id == "square_monosynth") {
         inst = std::make_unique<MonoOscillator>(0.15f, MonoOscillator::Waveform::Square);
-    }
+    } 
     if (!inst) return nullptr;
 
     Instrument* ptr = inst.get();

@@ -26,6 +26,8 @@ public:
     // Called from the JNI/Kotlin thread after reading the .sf2 asset bytes.
     void loadSoundFont(const uint8_t* data, int len);
 
+    void loadSoundFontFile(const char* filename);
+
 private:
     static constexpr int kQueueCap = 64; // must be power-of-2
 
