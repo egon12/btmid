@@ -21,6 +21,8 @@ public:
 
     void loadSoundFont(const uint8_t* data, int len);
 
+    void loadSoundFontFile(const std::string& path);
+
 private:
     Instrument* getOrCreate(const std::string& id);
 

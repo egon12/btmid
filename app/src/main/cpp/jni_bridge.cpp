@@ -88,6 +88,14 @@ Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSoundFont(
 }
 
 JNIEXPORT void JNICALL
+Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_loadSoundFontFile(
+        JNIEnv *env, jobject, jlong ptr, jstring jpath) {
+    const char *path = env->GetStringUTFChars(jpath, nullptr);
+    GRAPH(ptr)->loadSoundFontFile(path);
+    env->ReleaseStringUTFChars(jpath, path);
+}
+
+JNIEXPORT void JNICALL
 Java_org_gilbertxenodike_btmid_synth_NativeAudioEngine_openMidiDevice(
         JNIEnv *env, jobject, jlong ptr, jobject jDevice, jobject jListener) {
     GRAPH(ptr)->openMidiDevice(env, jDevice, jListener);

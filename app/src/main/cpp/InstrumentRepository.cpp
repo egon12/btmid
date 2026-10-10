@@ -67,3 +67,7 @@ void InstrumentRepository::loadDrumSample(int id, const float* data, int len) {
 void InstrumentRepository::loadSoundFont(const uint8_t* data, int len) {
     if (mSoundFont) mSoundFont->loadSoundFont(data, len);
 }
+
+void InstrumentRepository::loadSoundFontFile(const std::string& path) {
+    if (mSoundFont) mSoundFont->loadSoundFontFile(path.c_str());
+}

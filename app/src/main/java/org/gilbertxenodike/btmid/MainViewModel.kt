@@ -5,6 +5,7 @@ import android.Manifest.permission.BLUETOOTH_SCAN
 import android.app.Application
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.net.Uri
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
@@ -112,10 +113,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             _uiState.value = _uiState.value.copy(samplesLoaded = true)
         }
         viewModelScope.launch {
-            // The .sf2 asset is user-supplied; a missing/invalid file must not
-            // crash startup — the SF chip simply stays disabled.
+            // No SoundFont is bundled; load whatever the user previously
+            // imported (if any). A missing/invalid file must not crash
+            // startup — the SF chip simply stays disabled.
             val loaded = withContext(Dispatchers.IO) {
-                runCatching { soundFontBank.load() }.isSuccess
+                runCatching { soundFontBank.loadPersisted() }.getOrDefault(false)
             }
             _uiState.value = _uiState.value.copy(soundFontLoaded = loaded)
         }
@@ -257,6 +259,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         }
         _uiState.value = _uiState.value.copy(synthWaveform = waveform, channels = updatedChannels)
         if (channel == 0) viewModelScope.launch { waveformStore.save(waveform) }
+    }
+
+    // Called when the user picks a .sf2 file via the system document picker.
+    fun importSoundFont(uri: Uri) {
+        _uiState.value = _uiState.value.copy(soundFontLoaded = false)
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching { soundFontBank.import(uri) }.getOrDefault(false)
+            }
+            _uiState.value = _uiState.value.copy(soundFontLoaded = loaded)
+        }
     }
 
     fun setChannelVolume(channel: Int, volume: Float) {

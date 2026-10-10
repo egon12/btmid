@@ -61,6 +61,7 @@ fun MainScreen(
     onSetDrumBackend: (DrumBackend) -> Unit,
     onSetKeyboardType: (KeyboardType) -> Unit,
     onSetWaveform: (SynthWaveform) -> Unit,
+    onImportSoundFont: () -> Unit,
     showSelectEngineDialog: (Boolean) -> Unit,
     onSelectEngine: (AudioOutput) -> Unit,
     onLoopControlAction: (LoopControlAction) -> Unit,
@@ -141,6 +142,7 @@ fun MainScreen(
                     soundFontLoaded = uiState.soundFontLoaded,
                     onSelectType = onSetKeyboardType,
                     onSelectWaveform = onSetWaveform,
+                    onImportSoundFont = onImportSoundFont,
                 )
             }
 
@@ -322,6 +324,7 @@ private fun MainScreenPermissionNeededPreview() {
             onSetDrumBackend = {},
             onSetKeyboardType = {},
             onSetWaveform = {},
+            onImportSoundFont = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
@@ -358,6 +361,7 @@ private fun MainScreenConnectedPreview() {
             onSetDrumBackend = {},
             onSetKeyboardType = {},
             onSetWaveform = {},
+            onImportSoundFont = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},
@@ -390,6 +394,7 @@ private fun MainScreenScanningPreview() {
             onSetDrumBackend = {},
             onSetKeyboardType = {},
             onSetWaveform = {},
+            onImportSoundFont = {},
             showSelectEngineDialog = {},
             onSelectEngine = {},
             onLoopControlAction = {},

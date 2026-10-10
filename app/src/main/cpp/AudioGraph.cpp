@@ -71,6 +71,10 @@ void AudioGraph::loadSoundFont(const uint8_t *data, int len) {
     mRepository.loadSoundFont(data, len);
 }
 
+void AudioGraph::loadSoundFontFile(const std::string &path) {
+    mRepository.loadSoundFontFile(path);
+}
+
 void AudioGraph::noteOn(int ch, int note, int vel) {
     mMidiEngine.noteOn(ch, note, vel);
 }

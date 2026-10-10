@@ -33,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **UI**: Jetpack Compose with Material3
 - **Audio (local)**: Oboe 1.9.3 (low-latency C++ audio stream)
 - **Audio (network)**: Opus codec + UDP — encodes rendered PCM and streams over WiFi
-- **Audio (soundfont)**: TinySoundFont (`tsf.h`, single-header, fetched at CMake configure time — not committed) — plays a GM `.sf2` loaded from `app/src/main/assets/soundfonts/gm.sf2`
+- **Audio (soundfont)**: TinySoundFont (`tsf.h`, single-header, fetched at CMake configure time — not committed) — plays a GM `.sf2` the user imports at runtime via the system document picker (not bundled in the APK; a usable GM font is commonly 50-150+ MB)
 - **MIDI I/O**: AMidi (NDK) via `MidiManager.openBluetoothDevice`
 - **Min/Target SDK**: 36
 - **AGP**: 9.1.1, Kotlin: 2.2.10, NDK: 28.2.13676358
@@ -76,16 +76,16 @@ app/src/main/java/org/gilbertxenodike/btmid/
     MidiRouter.kt            — NativeAudioEngine.MidiEventListener; receives parsed events from C++ dispatch thread, emits to SharedFlow for UI; also emits loop state events
 
   synth/
-    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, loadSoundFont, setDrumBackend, setInstrument, setOutput, setMetronome, loop controls, benchmarkPianos)
+    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, loadSoundFont, loadSoundFontFile, setDrumBackend, setInstrument, setOutput, setMetronome, loop controls, benchmarkPianos)
     SampleBank.kt            — decodes OGG assets → FloatArray per drum name via MediaCodec; resamples to 48 kHz; calls NativeAudioEngine.loadSample()
-    SoundFontBank.kt         — reads `assets/soundfonts/gm.sf2` as raw bytes (`context.assets.open(...).readBytes()`, no decoding — TinySoundFont parses SF2 directly); called on `Dispatchers.IO` from `MainViewModel.init`; calls `NativeAudioEngine.loadSoundFont(bytes)`. Wrapped in `runCatching` — a missing/invalid file does not crash startup
+    SoundFontBank.kt         — no SoundFont is bundled in the APK. `import(uri)` streams the user-picked `.sf2` (from the system document picker) into app-private storage (`filesDir/soundfonts/gm.sf2`, via a `.tmp` file + rename so a cancelled/failed copy never leaves a half-written font) then calls `NativeAudioEngine.loadSoundFontFile(path)`. `loadPersisted()` re-loads that file at startup if present. Both paths are wrapped in `runCatching` by `MainViewModel` — a missing/invalid file does not crash
 
   ui/
     MainScreen.kt            — top-level Composable (permission banner, scan, drum selector, piano, drum pads, device list, loop controls, keyboard sound selector, waveform selector, sustain button)
     DeviceListItem.kt        — single discovered-device row
     MidiActivityIndicator.kt — animated dot that flashes on each MIDI event
     DrumEngineSelector.kt    — FilterChip row to switch Noise / FM Synth / Samples at runtime
-    KeyboardSoundSelector.kt — single-row drill-down selector: Piano/Poly/Mono/SF → (← back) Sine/Saw/Square. The SF chip has no waveform row (SoundFont is not one of `hasWaveforms`) and is disabled with a spinner until `UiState.soundFontLoaded` is true
+    KeyboardSoundSelector.kt — single-row drill-down selector: Piano/Poly/Mono/SF → (← back) Sine/Saw/Square. The SF chip has no waveform row (SoundFont is not one of `hasWaveforms`); until `UiState.soundFontLoaded` is true it reads "Import SF…" and tapping it calls `onImportSoundFont` (launches the system document picker) instead of selecting the instrument
     EngineSelector.kt        — ModalBottomSheet for choosing Oboe (local) or WiFi (UDP) audio output
     LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder; also hosts the metronome on/off `FilterChip` (`metronomeEnabled` / `onToggleMetronome`) — there is no separate metronome composable file
     MixerScreen.kt           — ModalBottomSheet: per-channel instrument selector + volume slider; add/remove channels
@@ -133,7 +133,7 @@ app/src/main/cpp/
 
 Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`, `closed_hat.ogg`, `open_hat.ogg`, `crash.ogg`, `ride.ogg`, `tom.ogg` (all toms share one file). Declared `noCompress` in `build.gradle.kts` so MediaExtractor can seek.
 
-SoundFont asset: `app/src/main/assets/soundfonts/gm.sf2` — user-supplied General MIDI `.sf2`, declared `noCompress` (`listOf("ogg", "sf2")`) so TinySoundFont can parse it directly from the APK. **Caution:** this file is not tracked in git/jj — it is well over jj's default 1 MiB snapshot size limit (currently ~140 MB in the working tree) and the project's own `assets/soundfonts/README.md` recommends a small font to keep the APK lean. `android:largeHeap="true"` was added to the manifest to cope with loading it. If absent or invalid, `SoundFontBank.load()` fails silently (`runCatching`) and the SF chip stays disabled — no crash.
+SoundFont: **not bundled as an asset.** The user imports a GM `.sf2` at runtime via `ActivityResultContracts.OpenDocument()` (wired in `MainActivity`); `SoundFontBank` copies it into app-private storage (`filesDir/soundfonts/gm.sf2`) and TinySoundFont reads it by file path (streaming parse, no large in-memory buffer). This replaced an earlier approach that bundled `gm.sf2` directly in `app/src/main/assets/soundfonts/` — that file was ~140 MB, well over jj's default 1 MiB snapshot size limit, and `android:largeHeap="true"` had to be added to the manifest to cope with loading it. If no font has been imported yet, the SF chip in `KeyboardSoundSelector` shows "Import SF…" and launches the picker on tap instead of selecting the instrument; a copy/parse failure is swallowed (`runCatching` in `MainViewModel`) and the chip just stays in the not-loaded state.
 
 ### Data Flow
 
@@ -305,8 +305,8 @@ All instruments implement `Instrument` interface: `noteOn(note, velocity)`, `not
 
 #### SfInstrument
 
-- Wraps TinySoundFont (`tsf.h`, single TU with `TSF_IMPLEMENTATION`); plays the GM `.sf2` loaded via `SoundFontBank`
-- `loadSoundFont(bytes)` (also `loadSoundFontFile(path)`) parses off the audio thread; publishes the resulting `tsf*` through an atomic release/acquire (load-once — never replaces an in-use pointer, so no deferred free needed)
+- Wraps TinySoundFont (`tsf.h`, single TU with `TSF_IMPLEMENTATION`); plays the GM `.sf2` imported at runtime via `SoundFontBank`
+- `loadSoundFontFile(path)` (the path used by `SoundFontBank`; `loadSoundFont(bytes)` also exists for in-memory buffers) parses off the audio thread; publishes the resulting `tsf*` through an atomic release/acquire (load-once — never replaces an in-use pointer, so no deferred free needed)
 - Routes everything to TSF channel 0, bank 0, preset 0; renders mono via `tsf_render_float(..., flag_mixing=1)`, mixing directly into the shared output buffer
 - Queue-based thread safety like other instruments (SpscRing of NoteOn/NoteOff/ControlChange); events are drained even before the font finishes loading
 - Known id: `"soundfont"`
@@ -369,7 +369,7 @@ Four keyboard types selectable via `KeyboardSoundSelector` — a single-row dril
 [ ← ]  [ Sine ]  [ Saw ]  [ Square ]  ← waveform view (shown when Poly or Mono selected)
 ```
 
-Selecting Poly or Mono auto-navigates to the waveform row; SF has no waveform row (not in `hasWaveforms`) and stays on the type view. The `←` button returns to the type row without changing the selection. The SF chip is disabled with a spinner until `UiState.soundFontLoaded` is true. `MainScreen` wraps the selector in `key(uiState.selectedChannel)` so its navigation state resets when switching channels.
+Selecting Poly or Mono auto-navigates to the waveform row; SF has no waveform row (not in `hasWaveforms`) and stays on the type view. The `←` button returns to the type row without changing the selection. Until `UiState.soundFontLoaded` is true, the SF chip reads "Import SF…" and tapping it triggers `onImportSoundFont` (the system document picker, via `ActivityResultContracts.OpenDocument()` in `MainActivity`) instead of selecting the instrument. `MainScreen` wraps the selector in `key(uiState.selectedChannel)` so its navigation state resets when switching channels.
 
 The selector always reflects the **currently selected keyboard channel**: `selectChannel()` in `MainViewModel` reads the channel's `instrumentId` and updates `keyboardType`/`synthWaveform` in UiState. `setKeyboardType()` and `setWaveform()` act on `selectedChannel` (not hardcoded channel 0). Persistence via `KeyboardTypeStore`/`WaveformStore` only fires for channel 0.
 
@@ -440,7 +440,7 @@ data class UiState(
     val midiActivityPulse: Boolean = false,
     val drumBackend: DrumBackend = DrumBackend.Noise,
     val samplesLoaded: Boolean = false,
-    val soundFontLoaded: Boolean = false,    // set after SoundFontBank.load() completes on Dispatchers.IO; failure is swallowed (runCatching)
+    val soundFontLoaded: Boolean = false,    // true once SoundFontBank.loadPersisted()/import() succeeds on Dispatchers.IO; failure is swallowed (runCatching)
     val engine: AudioOutput = AudioOutput.Oboe,
     val selectEngineDialogVisible: Boolean = false,
     val keyboardType: KeyboardType = KeyboardType.Piano,

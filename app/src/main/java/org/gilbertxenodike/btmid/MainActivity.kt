@@ -33,6 +33,10 @@ class MainActivity : ComponentActivity() {
                     vm.onPermissionsResult(results.values.all { it })
                 }
 
+                val soundFontLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri -> uri?.let { vm.importSoundFont(it) } }
+
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     if (uiState.mixerVisible) {
                         MixerScreen(
@@ -62,6 +66,7 @@ class MainActivity : ComponentActivity() {
                             onSetDrumBackend = { vm.setDrumBackend(it) },
                             onSetKeyboardType = { vm.setKeyboardType(it) },
                             onSetWaveform = { vm.setWaveform(it) },
+                            onImportSoundFont = { soundFontLauncher.launch(arrayOf("*/*")) },
                             modifier = Modifier.padding(innerPadding),
                             showSelectEngineDialog = { vm.showSelectEngineDialog(it) },
                             onSelectEngine = { vm.selectOutput(it) },

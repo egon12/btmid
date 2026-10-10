@@ -2,12 +2,7 @@ package org.gilbertxenodike.btmid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,6 +27,7 @@ fun KeyboardSoundSelector(
     soundFontLoaded: Boolean,
     onSelectType: (KeyboardType) -> Unit,
     onSelectWaveform: (SynthWaveform) -> Unit,
+    onImportSoundFont: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showWaveforms by remember { mutableStateOf(selected.hasWaveforms) }
@@ -52,33 +48,18 @@ fun KeyboardSoundSelector(
             }
         } else {
             KeyboardType.entries.forEach { type ->
-                val notReady = type == KeyboardType.SoundFont && !soundFontLoaded
+                val needsImport = type == KeyboardType.SoundFont && !soundFontLoaded
                 FilterChip(
                     selected = type == selected,
-                    enabled = !notReady,
                     onClick = {
-                        if (notReady) return@FilterChip
+                        if (needsImport) {
+                            onImportSoundFont()
+                            return@FilterChip
+                        }
                         onSelectType(type)
                         if (type.hasWaveforms) showWaveforms = true
                     },
-                    label = {
-                        if (notReady) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(12.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                                Spacer(Modifier.width(2.dp))
-                                Text(type.typeLabel)
-                            }
-                        } else {
-                            Text(type.typeLabel)
-                        }
-                    },
+                    label = { Text(if (needsImport) "Import SF…" else type.typeLabel) },
                 )
             }
         }

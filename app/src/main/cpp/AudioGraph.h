@@ -41,6 +41,8 @@ public:
 
     void loadSoundFont(const uint8_t *data, int len);
 
+    void loadSoundFontFile(const std::string &path);
+
     void noteOn(int channel, int note, int velocity);
 
     void noteOff(int channel, int note);
