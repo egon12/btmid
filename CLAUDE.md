@@ -33,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **UI**: Jetpack Compose with Material3
 - **Audio (local)**: Oboe 1.9.3 (low-latency C++ audio stream)
 - **Audio (network)**: Opus codec + UDP — encodes rendered PCM and streams over WiFi
+- **Audio (soundfont)**: TinySoundFont (`tsf.h`, single-header, fetched at CMake configure time — not committed) — plays a GM `.sf2` loaded from `app/src/main/assets/soundfonts/gm.sf2`
 - **MIDI I/O**: AMidi (NDK) via `MidiManager.openBluetoothDevice`
 - **Min/Target SDK**: 36
 - **AGP**: 9.1.1, Kotlin: 2.2.10, NDK: 28.2.13676358
@@ -75,17 +76,18 @@ app/src/main/java/org/gilbertxenodike/btmid/
     MidiRouter.kt            — NativeAudioEngine.MidiEventListener; receives parsed events from C++ dispatch thread, emits to SharedFlow for UI; also emits loop state events
 
   synth/
-    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, setDrumBackend, setInstrument, setOutput, loop controls, benchmarkPianos)
+    NativeAudioEngine.kt     — Kotlin singleton; loads libbtmid.so, exposes JNI bridge (noteOn/Off, loadSample, loadSoundFont, setDrumBackend, setInstrument, setOutput, setMetronome, loop controls, benchmarkPianos)
     SampleBank.kt            — decodes OGG assets → FloatArray per drum name via MediaCodec; resamples to 48 kHz; calls NativeAudioEngine.loadSample()
+    SoundFontBank.kt         — reads `assets/soundfonts/gm.sf2` as raw bytes (`context.assets.open(...).readBytes()`, no decoding — TinySoundFont parses SF2 directly); called on `Dispatchers.IO` from `MainViewModel.init`; calls `NativeAudioEngine.loadSoundFont(bytes)`. Wrapped in `runCatching` — a missing/invalid file does not crash startup
 
   ui/
     MainScreen.kt            — top-level Composable (permission banner, scan, drum selector, piano, drum pads, device list, loop controls, keyboard sound selector, waveform selector, sustain button)
     DeviceListItem.kt        — single discovered-device row
     MidiActivityIndicator.kt — animated dot that flashes on each MIDI event
     DrumEngineSelector.kt    — FilterChip row to switch Noise / FM Synth / Samples at runtime
-    KeyboardSoundSelector.kt — single-row drill-down selector: Piano/Poly/Mono → (← back) Sine/Saw/Square
+    KeyboardSoundSelector.kt — single-row drill-down selector: Piano/Poly/Mono/SF → (← back) Sine/Saw/Square. The SF chip has no waveform row (SoundFont is not one of `hasWaveforms`) and is disabled with a spinner until `UiState.soundFontLoaded` is true
     EngineSelector.kt        — ModalBottomSheet for choosing Oboe (local) or WiFi (UDP) audio output
-    LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder
+    LoopControls.kt          — REC/STOP/CLEAR buttons + time-signature button (opens dialog) for MIDI loop recorder; also hosts the metronome on/off `FilterChip` (`metronomeEnabled` / `onToggleMetronome`) — there is no separate metronome composable file
     MixerScreen.kt           — ModalBottomSheet: per-channel instrument selector + volume slider; add/remove channels
     PianoKeyboard.kt         — one-octave Canvas keyboard (C4–B4, MIDI 60–71); multi-touch via pointerInput → NativeAudioEngine
     PianoKeyboardController.kt — wraps PianoKeyboard with channel tabs (when >1 keyboard channel), octave +/−, and sustain toggle
@@ -105,6 +107,7 @@ app/src/main/cpp/
   MidiEvt.h                   — MidiEvt struct (channel, type, data1, data2); channel 0xFF overloaded for loop state
   UICallback.h/.cpp           — standalone dispatch thread: drains SpscRing → JNI callback → Kotlin MidiRouter; handles both MIDI events and loop state
   LoopRecorder.h/.cpp         — MIDI loop recorder with overdub; state machine (Idle/Recording/Playing/Armed/Overdubbing); triggered by CC#95/CC#93 or JNI
+  Metronome.h/.cpp            — click generator mixed directly into the output buffer by `MidiEngine::render()`; params (enabled, bpm, beatsPerBar) set via `setMetronome()`; accent click on beat 1 (1000 Hz) vs other beats (600 Hz), 50 ms decay envelope
   PianoBenchmark.h/.cpp       — benchmarks Piano vs PianoSinTable (1-second render × 10)
   InstrumentRepository.h/.cpp — owns all concrete instruments (lazy-created by string id); only file that includes concrete instrument headers
   Instrument.h                — pure-virtual interface: noteOn/Off/render; controlChange has default no-op
@@ -124,9 +127,13 @@ app/src/main/cpp/
     NoiseDrum.h/.cpp          — noise-burst synthesis per GM drum note, 16-voice, queue-based thread safety
     FmDrum.h/.cpp             — FM operator synthesis per GM drum note, 16-voice, queue-based thread safety
     SampleDrum.h/.cpp         — plays back FloatArray samples loaded from SampleBank, 16-voice, atomic sample loading, queue-based thread safety
+    SfInstrument.h/.cpp       — wraps TinySoundFont (`tsf.h`); `loadSoundFont(bytes)` parses SF2 off the UI/IO thread, publishes the `tsf*` via atomic release/acquire (load-once, no live reload); noteOn/Off/CC queued (SpscRing) and drained in `render()` since TSF itself isn't thread-safe; registered under id `"soundfont"`
+    SinSawOscillator.h/.cpp, WaveTable.h/.cpp — **not compiled** (absent from `CMakeLists.txt`'s `add_library(btmid ...)` source list); work-in-progress sine+saw oscillator and wavetable helper left in the tree. `SinSawOscillator.cpp` currently has a syntax error (missing `;`) so it would not build if added
 ```
 
 Sample assets: `app/src/main/assets/samples/drums/` — `kick.ogg`, `snare.ogg`, `closed_hat.ogg`, `open_hat.ogg`, `crash.ogg`, `ride.ogg`, `tom.ogg` (all toms share one file). Declared `noCompress` in `build.gradle.kts` so MediaExtractor can seek.
+
+SoundFont asset: `app/src/main/assets/soundfonts/gm.sf2` — user-supplied General MIDI `.sf2`, declared `noCompress` (`listOf("ogg", "sf2")`) so TinySoundFont can parse it directly from the APK. **Caution:** this file is not tracked in git/jj — it is well over jj's default 1 MiB snapshot size limit (currently ~140 MB in the working tree) and the project's own `assets/soundfonts/README.md` recommends a small font to keep the APK lean. `android:largeHeap="true"` was added to the manifest to cope with loading it. If absent or invalid, `SoundFontBank.load()` fails silently (`runCatching`) and the SF chip stays disabled — no crash.
 
 ### Data Flow
 
@@ -217,11 +224,11 @@ Replaces the old `AudioEngine` pure-virtual interface. All MIDI processing, loop
 
 #### InstrumentRepository
 
-- The **only** file that includes concrete instrument headers (`Piano.h`, `PianoSinTable.h`, `PolyOscillator.h`, `MonoOscillator.h`, `NoiseDrum.h`, `FmDrum.h`, `SampleDrum.h`)
+- The **only** file that includes concrete instrument headers (`Piano.h`, `PianoSinTable.h`, `PolyOscillator.h`, `MonoOscillator.h`, `NoiseDrum.h`, `FmDrum.h`, `SampleDrum.h`, `SfInstrument.h`)
 - Lazy-creates instruments on first `setInstrument` call for a given id
 - Calls `MidiEngine::setInstrument(channel, ptr)`
-- Eagerly creates `SampleDrum` in constructor so `loadDrumSample()` always has a target
-- Known ids: `"piano"`, `"sine_polysynth"`, `"saw_polysynth"`, `"square_polysynth"`, `"sine_monosynth"`, `"saw_monosynth"`, `"square_monosynth"`, `"noise_drum"`, `"fm_drum"`, `"sample_drum"`
+- Eagerly creates `SampleDrum` **and** `SfInstrument` in the constructor so `loadDrumSample()` / `loadSoundFont()` always have a target, regardless of load order vs. `setInstrument()`
+- Known ids: `"piano"`, `"sine_polysynth"`, `"saw_polysynth"`, `"square_polysynth"`, `"sine_monosynth"`, `"saw_monosynth"`, `"square_monosynth"`, `"noise_drum"`, `"fm_drum"`, `"sample_drum"`, `"soundfont"`
 
 #### UICallback
 
@@ -296,6 +303,14 @@ All instruments implement `Instrument` interface: `noteOn(note, velocity)`, `not
 - noteOff only releases if note matches last noteOn
 - Known ids: `"sine_monosynth"`, `"saw_monosynth"`, `"square_monosynth"`
 
+#### SfInstrument
+
+- Wraps TinySoundFont (`tsf.h`, single TU with `TSF_IMPLEMENTATION`); plays the GM `.sf2` loaded via `SoundFontBank`
+- `loadSoundFont(bytes)` (also `loadSoundFontFile(path)`) parses off the audio thread; publishes the resulting `tsf*` through an atomic release/acquire (load-once — never replaces an in-use pointer, so no deferred free needed)
+- Routes everything to TSF channel 0, bank 0, preset 0; renders mono via `tsf_render_float(..., flag_mixing=1)`, mixing directly into the shared output buffer
+- Queue-based thread safety like other instruments (SpscRing of NoteOn/NoteOff/ControlChange); events are drained even before the font finishes loading
+- Known id: `"soundfont"`
+
 ### Drum Engine
 
 Three C++ backends selectable at runtime. Switching calls `AudioGraph::setInstrument(9, id)` which atomically swaps `mChannels[9]` in the active `MidiEngine`.
@@ -347,14 +362,14 @@ The selected backend is persisted across restarts via `DrumBackendStore` (DataSt
 
 ### Keyboard Instruments
 
-Three keyboard types selectable via `KeyboardSoundSelector` — a single-row drill-down composable:
+Four keyboard types selectable via `KeyboardSoundSelector` — a single-row drill-down composable:
 
 ```
-[ Piano ]  [ Poly ]  [ Mono ]          ← type view (shown when Piano, or after pressing back)
+[ Piano ]  [ Poly ]  [ Mono ]  [ SF ]  ← type view (shown when Piano/SF, or after pressing back)
 [ ← ]  [ Sine ]  [ Saw ]  [ Square ]  ← waveform view (shown when Poly or Mono selected)
 ```
 
-Selecting Poly or Mono auto-navigates to the waveform row. The `←` button returns to the type row without changing the selection. `MainScreen` wraps the selector in `key(uiState.selectedChannel)` so its navigation state resets when switching channels.
+Selecting Poly or Mono auto-navigates to the waveform row; SF has no waveform row (not in `hasWaveforms`) and stays on the type view. The `←` button returns to the type row without changing the selection. The SF chip is disabled with a spinner until `UiState.soundFontLoaded` is true. `MainScreen` wraps the selector in `key(uiState.selectedChannel)` so its navigation state resets when switching channels.
 
 The selector always reflects the **currently selected keyboard channel**: `selectChannel()` in `MainViewModel` reads the channel's `instrumentId` and updates `keyboardType`/`synthWaveform` in UiState. `setKeyboardType()` and `setWaveform()` act on `selectedChannel` (not hardcoded channel 0). Persistence via `KeyboardTypeStore`/`WaveformStore` only fires for channel 0.
 
@@ -362,6 +377,7 @@ The selector always reflects the **currently selected keyboard channel**: `selec
 - Piano → `"piano"`
 - Poly + Sine → `"sine_polysynth"`, Poly + Saw → `"saw_polysynth"`, Poly + Square → `"square_polysynth"`
 - Mono + Sine → `"sine_monosynth"`, Mono + Saw → `"saw_monosynth"`, Mono + Square → `"square_monosynth"`
+- SoundFont → `"soundfont"` (waveform ignored)
 
 Switching calls `AudioGraph::setInstrument(selectedChannel, id)` which atomically swaps `mChannels[selectedChannel]`.
 
@@ -401,15 +417,16 @@ State flows: C++ `LoopRecorder::onStateChange` → `MidiEvt{0xFF, state, 0, 0}` 
 
 ```kotlin
 enum class DrumBackend { Noise, Fm, Samples }
-enum class KeyboardType { Piano, Poly, Mono }
+enum class KeyboardType { Piano, Poly, Mono, SoundFont }
 enum class SynthWaveform { Sine, Saw, Square }
 enum class LoopState { Idle, Recording, Playing, Armed, Overdubbing }
-sealed class AudioEngine { Oboe; Wifi(host: String, port: Int) }
+sealed class AudioOutput { Oboe; Wifi(host: String, port: Int) }
 
 data class TimeSignature(
     val beatsPerBar: Int = 4,
     val noteValue: Int = 4,   // denominator: 4 = quarter note, 8 = eighth note
     val bars: Int = 1,        // loop length in bars (1, 2, 4, 8, 16)
+    val bpm: Int = 120,
 ) {
     val label: String get() = if (bars == 1) "$beatsPerBar/$noteValue" else "${bars}×$beatsPerBar/$noteValue"
 }
@@ -423,18 +440,22 @@ data class UiState(
     val midiActivityPulse: Boolean = false,
     val drumBackend: DrumBackend = DrumBackend.Noise,
     val samplesLoaded: Boolean = false,
-    val engine: AudioEngine = AudioEngine.Oboe,
+    val soundFontLoaded: Boolean = false,    // set after SoundFontBank.load() completes on Dispatchers.IO; failure is swallowed (runCatching)
+    val engine: AudioOutput = AudioOutput.Oboe,
     val selectEngineDialogVisible: Boolean = false,
     val keyboardType: KeyboardType = KeyboardType.Piano,
     val synthWaveform: SynthWaveform = SynthWaveform.Sine,
     val loopState: LoopState = LoopState.Idle,
     val loopLengthSec: Int = 0,              // loop progress 0–99 from C++ (percentage through loop)
     val timeSignature: TimeSignature = TimeSignature(),
+    val metronomeEnabled: Boolean = false,   // toggled via LoopControls FilterChip; setTimeSignature()/toggleMetronome() call NativeAudioEngine.setMetronome(enabled, bpm, beatsPerBar)
     val channels: List<ChannelStrip> = ...,
     val selectedChannel: Int = 0,
     val mixerVisible: Boolean = false,
 )
 ```
+
+> Note: there is an unmerged, unbookmarked jj change ("try the quantize", change id `ssqwysyx`) that adds `AudioGraph::setQuantizeEnabled` / `MidiEngine::setLoopStructure` in C++, but no corresponding JNI export, `NativeAudioEngine` method, or ViewModel state exists for it yet — quantization is **not** a shipped feature.
 
 ### Threading
 
